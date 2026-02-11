@@ -186,20 +186,60 @@ def detect_platform(url: str) -> str:
     """检测视频平台"""
     url_lower = url.lower()
     
+    # 视频平台
     if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
         return 'youtube'
-    elif 'bilibili.com' in url_lower or 'b站' in url_lower:
+    elif 'bilibili.com' in url_lower or 'b站' in url:
         return 'bilibili'
     elif 'tiktok.com' in url_lower or 'douyin' in url_lower:
         return 'douyin'
+    elif 'kuaishou.com' in url_lower or '快手' in url:
+        return 'kuaishou'
     elif 'ixigua.com' in url_lower or '西瓜视频' in url:
         return 'xigua'
+    elif 'twitch.tv' in url_lower:
+        return 'twitch'
+    elif 'vimeo.com' in url_lower:
+        return 'vimeo'
+    
+    # 社交媒体
     elif 'weibo.com' in url_lower:
         return 'weibo'
     elif 'twitter.com' in url_lower or 'x.com' in url_lower:
         return 'twitter'
     elif 'instagram.com' in url_lower:
         return 'instagram'
+    elif 'xiaohongshu.com' in url_lower or '小红书' in url:
+        return 'xiaohongshu'
+    elif 'zhihu.com' in url_lower:
+        return 'zhihu'
+    
+    # 音乐平台
+    elif 'music.163.com' in url_lower:
+        return 'netease'
+    elif 'qq.com' in url_lower and 'music' in url_lower:
+        return 'qqmusic'
+    elif 'soundcloud.com' in url_lower:
+        return 'soundcloud'
+    elif '.rss' in url_lower or 'podcast' in url_lower:
+        return 'podcast'
+    
+    # 电商平台
+    elif 'taobao.com' in url_lower or '天猫' in url:
+        return 'taobao'
+    elif 'tmall.com' in url_lower:
+        return 'tmall'
+    elif 'jd.com' in url_lower or '京东' in url:
+        return 'jd'
+    elif 'dewu.com' in url_lower or '得物' in url:
+        return 'dewu'
+    elif 'zhuanzhuan.com' in url_lower or '转转' in url:
+        return 'zhuanzhuan'
+    elif 'xianyu.com' in url_lower or '闲鱼' in url:
+        return 'xianyu'
+    elif 'amazon.' in url_lower:
+        return 'amazon'
+    
     else:
         return 'unknown'
 
@@ -612,11 +652,371 @@ class InstagramExtractor:
         }
 
 
+# ============== 快手 平台 ==============
+class KuaishouExtractor:
+    """快手视频提取器"""
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """提取视频 ID"""
+        match = re.search(r'/video/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息"""
+        video_id = KuaishouExtractor.extract_video_id(url)
+        return {
+            'id': video_id,
+            'url': url,
+            'title': f'快手视频 {video_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'kuaishou'
+        }
+
+
+# ============== 小红书 平台 ==============
+class XiaohongshuExtractor:
+    """小红书笔记提取器"""
+    
+    @staticmethod
+    def extract_note_id(url: str) -> Optional[str]:
+        """提取笔记 ID"""
+        match = re.search(r'/explore/([a-zA-Z0-9]+)', url)
+        if match:
+            return match.group(1)
+        match = re.search(r'/pin/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取笔记信息"""
+        note_id = XiaohongshuExtractor.extract_note_id(url)
+        return {
+            'id': note_id,
+            'url': url,
+            'title': f'小红书笔记 {note_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'xiaohongshu'
+        }
+
+
+# ============== 知乎 平台 ==============
+class ZhihuExtractor:
+    """知乎回答提取器"""
+    
+    @staticmethod
+    def extract_answer_id(url: str) -> Optional[str]:
+        """提取回答 ID"""
+        match = re.search(r'/question/(\d+)/answer/(\d+)', url)
+        if match:
+            return match.group(2)
+        match = re.search(r'/p/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取回答信息"""
+        answer_id = ZhihuExtractor.extract_answer_id(url)
+        return {
+            'id': answer_id,
+            'url': url,
+            'title': f'知乎回答 {answer_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'zhihu'
+        }
+
+
+# ============== Twitch 平台 ==============
+class TwitchExtractor:
+    """Twitch 直播提取器"""
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """提取视频 ID"""
+        match = re.search(r'videos/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息"""
+        video_id = TwitchExtractor.extract_video_id(url)
+        return {
+            'id': video_id,
+            'url': url,
+            'title': f'Twitch 视频 {video_id}',
+            'desc': '',
+            'author': '未知主播',
+            'platform': 'twitch'
+        }
+
+
+# ============== Vimeo 平台 ==============
+class VimeoExtractor:
+    """Vimeo 视频提取器"""
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """提取视频 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息"""
+        video_id = VimeoExtractor.extract_video_id(url)
+        return {
+            'id': video_id,
+            'url': url,
+            'title': f'Vimeo 视频 {video_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'vimeo'
+        }
+
+
+# ============== 网易云音乐 平台 ==============
+class NetEaseMusicExtractor:
+    """网易云音乐歌曲提取器"""
+    
+    @staticmethod
+    def extract_song_id(url: str) -> Optional[str]:
+        """提取歌曲 ID"""
+        match = re.search(r'/song/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取歌曲信息"""
+        song_id = NetEaseMusicExtractor.extract_song_id(url)
+        return {
+            'id': song_id,
+            'url': url,
+            'title': f'网易云音乐 {song_id}',
+            'desc': '',
+            'author': '未知歌手',
+            'platform': 'netease'
+        }
+
+
+# ============== QQ音乐 平台 ==============
+class QQMusicExtractor:
+    """QQ音乐歌曲提取器"""
+    
+    @staticmethod
+    def extract_song_id(url: str) -> Optional[str]:
+        """提取歌曲 ID"""
+        match = re.search(r'/song/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取歌曲信息"""
+        song_id = QQMusicExtractor.extract_song_id(url)
+        return {
+            'id': song_id,
+            'url': url,
+            'title': f'QQ音乐 {song_id}',
+            'desc': '',
+            'author': '未知歌手',
+            'platform': 'qqmusic'
+        }
+
+
+# ============== SoundCloud 平台 ==============
+class SoundCloudExtractor:
+    """SoundCloud 音频提取器"""
+    
+    @staticmethod
+    def extract_track_id(url: str) -> Optional[str]:
+        """提取曲目 ID"""
+        match = re.search(r'/(\w+)$', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取曲目信息"""
+        track_id = SoundCloudExtractor.extract_track_id(url)
+        return {
+            'id': track_id,
+            'url': url,
+            'title': f'SoundCloud {track_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'soundcloud'
+        }
+
+
+# ============== 淘宝/天猫 平台 ==============
+class TaobaoExtractor:
+    """淘宝/天猫商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'id=(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = TaobaoExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'淘宝商品 {item_id}',
+            'desc': '',
+            'author': '未知店铺',
+            'platform': 'taobao'
+        }
+
+
+# ============== 京东 平台 ==============
+class JDExtractor:
+    """京东商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/(\d+)\.html', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = JDExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'京东商品 {item_id}',
+            'desc': '',
+            'author': '未知店铺',
+            'platform': 'jd'
+        }
+
+
+# ============== 得物 平台 ==============
+class DewuExtractor:
+    """得物商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/goods/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = DewuExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'得物商品 {item_id}',
+            'desc': '',
+            'author': '未知卖家',
+            'platform': 'dewu'
+        }
+
+
+# ============== 转转 平台 ==============
+class ZhuanzhuanExtractor:
+    """转转商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/i/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = ZhuanzhuanExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'转转商品 {item_id}',
+            'desc': '',
+            'author': '未知卖家',
+            'platform': 'zhuanzhuan'
+        }
+
+
+# ============== 闲鱼 平台 ==============
+class XianyuExtractor:
+    """闲鱼商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = XianyuExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'闲鱼商品 {item_id}',
+            'desc': '',
+            'author': '未知卖家',
+            'platform': 'xianyu'
+        }
+
+
+# ============== Podcast RSS 平台 ==============
+class PodcastExtractor:
+    """Podcast RSS 提取器"""
+    
+    @staticmethod
+    def extract_feed_info(url: str) -> Dict:
+        """提取播客信息"""
+        return {
+            'id': url,
+            'url': url,
+            'title': f'Podcast Feed',
+            'desc': '',
+            'author': '未知播客',
+            'platform': 'podcast'
+        }
+
+
+# ============== 亚马逊 平台 ==============
+class AmazonExtractor:
+    """亚马逊商品提取器"""
+    
+    @staticmethod
+    def extract_asin(url: str) -> Optional[str]:
+        """提取 ASIN"""
+        match = re.search(r'/dp/([A-Z0-9]{10})', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        asin = AmazonExtractor.extract_asin(url)
+        return {
+            'id': asin,
+            'url': url,
+            'title': f'Amazon {asin}',
+            'desc': '',
+            'author': '未知商家',
+            'platform': 'amazon'
+        }
+
+
 # ============== 主总结器 ==============
 class VideoSummarizer:
     """多平台视频总结器"""
     
     PLATFORMS = {
+        # 视频平台
         'youtube': {
             'name': 'YouTube',
             'extractor': YouTubeExtractor,
@@ -635,12 +1035,32 @@ class VideoSummarizer:
             'content_type': '描述',
             'api_required': False
         },
+        'kuaishou': {
+            'name': '快手',
+            'extractor': KuaishouExtractor,
+            'content_type': '描述',
+            'api_required': False
+        },
         'xigua': {
             'name': '西瓜视频',
             'extractor': XiguaExtractor,
             'content_type': '描述',
             'api_required': False
         },
+        'twitch': {
+            'name': 'Twitch',
+            'extractor': TwitchExtractor,
+            'content_type': '描述',
+            'api_required': False
+        },
+        'vimeo': {
+            'name': 'Vimeo',
+            'extractor': VimeoExtractor,
+            'content_type': '描述',
+            'api_required': False
+        },
+        
+        # 社交媒体
         'weibo': {
             'name': '微博',
             'extractor': WeiboExtractor,
@@ -657,6 +1077,88 @@ class VideoSummarizer:
             'name': 'Instagram',
             'extractor': InstagramExtractor,
             'content_type': '文本',
+            'api_required': False
+        },
+        'xiaohongshu': {
+            'name': '小红书',
+            'extractor': XiaohongshuExtractor,
+            'content_type': '文本',
+            'api_required': False
+        },
+        'zhihu': {
+            'name': '知乎',
+            'extractor': ZhihuExtractor,
+            'content_type': '回答',
+            'api_required': False
+        },
+        
+        # 音乐平台
+        'netease': {
+            'name': '网易云音乐',
+            'extractor': NetEaseMusicExtractor,
+            'content_type': '歌曲',
+            'api_required': False
+        },
+        'qqmusic': {
+            'name': 'QQ音乐',
+            'extractor': QQMusicExtractor,
+            'content_type': '歌曲',
+            'api_required': False
+        },
+        'soundcloud': {
+            'name': 'SoundCloud',
+            'extractor': SoundCloudExtractor,
+            'content_type': '音频',
+            'api_required': False
+        },
+        'podcast': {
+            'name': 'Podcast',
+            'extractor': PodcastExtractor,
+            'content_type': 'RSS',
+            'api_required': False
+        },
+        
+        # 电商平台
+        'taobao': {
+            'name': '淘宝',
+            'extractor': TaobaoExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'tmall': {
+            'name': '天猫',
+            'extractor': TaobaoExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'jd': {
+            'name': '京东',
+            'extractor': JDExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'dewu': {
+            'name': '得物',
+            'extractor': DewuExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'zhuanzhuan': {
+            'name': '转转',
+            'extractor': ZhuanzhuanExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'xianyu': {
+            'name': '闲鱼',
+            'extractor': XianyuExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'amazon': {
+            'name': '亚马逊',
+            'extractor': AmazonExtractor,
+            'content_type': '商品',
             'api_required': False
         }
     }
