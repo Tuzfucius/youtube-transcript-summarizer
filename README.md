@@ -12,6 +12,10 @@
 - 💾 **弹幕清洗** - 自动过滤无意义内容
 - 🤖 **大模型友好** - Claude Code、OpenCode 原生接入
 - ⚡ **CLI 增强** - 批量处理、配置文件、缓存管理
+- 🚀 **异步并发** - 多视频同时处理
+- 📊 **历史记录** - SQLite 存储与统计
+- 🔍 **视频对比** - 多视频对比分析
+- 🌐 **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
 
 ## 🚀 快速开始
 
@@ -46,18 +50,31 @@ python cli.py url "https://youtube.com/watch?v=xxx" -f brief
 # 保存到文件
 python cli.py url "https://bilibili.com/video/BVxxx" -f detailed -o result.md
 
-# 批量处理
+# 批量处理（同步）
 python cli.py batch urls.txt -o results.json
 
-# 查看支持平台
-python cli.py platforms
+# 批量处理（异步并发）
+python cli.py batch urls.txt --async -c 5
+
+# 对比多个视频
+python cli.py compare "URL1" "URL2" "URL3" -o comparison.json
+
+# 查看历史记录
+python cli.py history
+
+# 搜索历史
+python cli.py history --search AI
+
+# 查看统计
+python cli.py stats
+
+# LLM 提供商
+python cli.py providers
+python cli.py url "URL" --provider openai
 
 # 配置管理
 python cli.py config --set api_key=xxx
-
-# 缓存管理
-python cli.py cache --list
-python cli.py cache --clear
+python cli.py config --get api_key
 ```
 
 ### MCP Server
@@ -272,6 +289,64 @@ result = summarize(url="https://youtube.com/watch?v=xxx")
 }
 ```
 
+## 🚀 高级功能
+
+### 异步并发处理
+```python
+from advanced import AsyncSummarizer
+
+async def main():
+    async_s = AsyncSummarizer(max_concurrent=5)
+    results = await async_s.summarize_batch(
+        urls=["URL1", "URL2", "URL3"],
+        format="brief"
+    )
+
+asyncio.run(main())
+```
+
+### 多 LLM 提供商
+```python
+from advanced import LLMFactories, quick_summarize
+
+# 查看支持的提供商
+print(LLMFactories.list_providers())
+# ['minimax', 'openai', 'deepseek', 'anthropic']
+
+# 使用 OpenAI
+result = quick_summarize("URL", provider="openai", api_key="xxx")
+```
+
+### 历史记录管理
+```python
+from advanced import HistoryStore
+
+store = HistoryStore()
+
+# 添加到历史
+store.add(url, title, platform, summary, format, tags=["AI", "技术"])
+
+# 搜索
+results = store.search("AI")
+
+# 统计
+stats = store.get_stats()
+print(f"总记录: {stats['total']}")
+
+# 获取所有
+all_history = store.get_all(limit=100)
+```
+
+### 视频对比
+```python
+from advanced import VideoComparator
+
+comparator = VideoComparator()
+report = comparator.compare(["URL1", "URL2", "URL3"], format="brief")
+
+print(report['comparison']['platforms'])  # 平台分布
+```
+
 ## 🔗 GitHub
 
 🔗 **https://github.com/Tuzfucius/youtube-transcript-summarizer**
@@ -282,14 +357,22 @@ result = summarize(url="https://youtube.com/watch?v=xxx")
 
 ## 更新日志
 
-### v3.8.2 (2026-02-11) - 本次更新
+### v3.8.3 (2026-02-11) - 本次更新
 
-- ✨ **CLI 增强** - 全新命令行工具
-- ✨ **批量处理** - 支持文件批量输入
-- ✨ **配置文件** - 集中管理 API key 和参数
-- ✨ **缓存管理** - 查看和清除缓存
-- ✨ **多种输出** - 支持 JSON 和 Markdown 文件输出
-- ✨ **配置命令** - CLI 内置配置管理
+- ✨ **异步并发** - AsyncSummarizer 支持多视频并发处理
+- ✨ **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
+- ✨ **历史记录** - SQLite 存储、搜索、统计
+- ✨ **视频对比** - 多视频对比分析报告
+- ✨ **CLI 增强** - 对比、历史、统计命令
+
+### v3.8.2 (2026-02-11)
+
+- ✨ CLI 增强 - 全新命令行工具
+- ✨ 批量处理 - 支持文件批量输入
+- ✨ 配置文件 - 集中管理 API key 和参数
+- ✨ 缓存管理 - 查看和清除缓存
+- ✨ 多种输出 - 支持 JSON 和 Markdown 文件输出
+- ✨ 配置命令 - CLI 内置配置管理
 
 ### v3.8.1 (2026-02-11)
 
