@@ -27,11 +27,12 @@ DEPLOY_MODES = {
             'youtube-transcript-api',
             'requests',
         ],
+        'optional_dependencies': [],
         'size_estimate': '~500KB',
     },
     'full': {
         'name': '全部部署',
-        'description': '完整功能，包含 CLI、异步、历史记录等',
+        'description': '完整功能，包含 CLI、异步、历史记录、Whisper、Web UI',
         'features': [
             '轻量化所有功能',
             'CLI 工具 (cli.py)',
@@ -41,7 +42,8 @@ DEPLOY_MODES = {
             'MCP Server',
             'Claude Code 集成',
             '成本追踪',
-            'Whisper 支持',
+            'Whisper 转录 (web_ui.py)',
+            'Gradio Web UI (whisper_transcribe.py)',
         ],
         'files': [
             'video_summarizer.py',
@@ -50,16 +52,21 @@ DEPLOY_MODES = {
             'advanced.py',
             'mcp_server.py',
             'claude_code.py',
+            'deploy.py',
+            'export_subtitle.py',
+            'whisper_transcribe.py',  # 新增
+            'web_ui.py',               # 新增
         ],
         'dependencies': [
             'youtube-transcript-api',
             'requests',
         ],
         'optional_dependencies': [
-            'faster-whisper',  # Whisper 转录
-            'yt-dlp',          # 视频下载
+            'faster-whisper',   # Whisper 转录
+            'yt-dlp',           # 视频下载
+            'gradio',           # Web UI
         ],
-        'size_estimate': '~2MB',
+        'size_estimate': '~5MB',
     }
 }
 
@@ -89,7 +96,7 @@ echo "✅ Python 3 已安装"
 
 # 安装依赖
 echo ""
-echo "📦 安装依赖..."
+echo "📦 安装核心依赖..."
 '''
 
     for dep in config['dependencies']:
@@ -100,14 +107,23 @@ pip install {dep} 2>/dev/null || echo "  ⚠️ {dep} 安装失败"
     if mode == 'full' and config.get('optional_dependencies'):
         script += f'''
 echo ""
-echo "📦 安装可选依赖 (Whisper 转录等)..."
-for dep in {" ".join(config['optional_dependencies'])}; do
-    read -p "是否安装 $dep? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        pip install $dep 2>/dev/null || echo "  ⚠️ $dep 安装失败"
-    fi
-done
+echo "📦 安装可选依赖..."
+echo ""
+echo "  1. faster-whisper - Whisper 转录（无字幕时使用）"
+echo "  2. yt-dlp       - 视频下载"
+echo "  3. gradio       - Web 界面"
+echo ""
+read -p "是否安装可选依赖? [y/N]: " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    for dep in {" ".join(config['optional_dependencies'])}; do
+        read -p "  安装 $dep? [y/N]: " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            pip install $dep 2>/dev/null || echo "    ⚠️ $dep 安装失败"
+        fi
+    done
+fi
 '''
 
     script += f'''
@@ -120,7 +136,7 @@ echo "使用方式:"
 echo ""
 echo "  Python API:"
 echo "    from video_summarizer import summarize"
-echo "    result = summarize('URL', format='brief')"
+echo '    result = summarize("URL", format="brief")'
 echo ""
 echo "  CLI:"
 echo "    python cli.py url 'URL' -f brief"
@@ -128,8 +144,11 @@ echo ""
 '''
 
     if mode == 'full':
-        script += '''echo "  Claude Code:"
-echo "    /video-summarizer URL"
+        script += '''echo "  Web UI:"
+echo "    python web_ui.py --port 7860"
+echo ""
+echo "  Whisper:"
+echo "    python whisper_transcribe.py 'audio.wav' --model small"
 echo ""
 '''
 
@@ -150,8 +169,7 @@ def generate_requirements(mode: str = 'light') -> str:
     
     if mode == 'full' and config.get('optional_dependencies'):
         lines.append('')
-        lines.append('# Optional Dependencies')
-        lines.append('# Install manually if needed')
+        lines.append('# Optional Dependencies (install manually)')
         for dep in config['optional_dependencies']:
             lines.append(f'# {dep}')
     
@@ -162,36 +180,27 @@ def check_installation(mode: str = 'light') -> dict:
     """检查安装状态"""
     status = {
         'mode': mode,
-        'python': False,
-        'dependencies': [],
-        'optional': [],
+        'core': {'installed': [], 'missing': []},
+        'optional': {'installed': [], 'missing': []},
         'files': [],
         'ready': False,
     }
     
-    # 检查 Python
-    try:
-        import youtube_transcript_api
-        import requests
-        status['python'] = True
-    except ImportError:
-        pass
-    
-    # 检查依赖
+    # 检查核心依赖
     for dep in DEPLOY_MODES[mode]['dependencies']:
         try:
             __import__(dep.replace('-', '_'))
-            status['dependencies'].append({'name': dep, 'installed': True})
+            status['core']['installed'].append(dep)
         except ImportError:
-            status['dependencies'].append({'name': dep, 'installed': False})
+            status['core']['missing'].append(dep)
     
     # 检查可选依赖
     for dep in DEPLOY_MODES['full'].get('optional_dependencies', []):
         try:
             __import__(dep.replace('-', '_'))
-            status['optional'].append({'name': dep, 'installed': True})
+            status['optional']['installed'].append(dep)
         except ImportError:
-            status['optional'].append({'name': dep, 'installed': False})
+            status['optional']['missing'].append(dep)
     
     # 检查文件
     skill_dir = Path(__file__).parent
@@ -201,8 +210,7 @@ def check_installation(mode: str = 'light') -> dict:
     
     # 判断是否就绪
     status['ready'] = (
-        status['python'] and
-        all(d['installed'] for d in status['dependencies']) and
+        len(status['core']['missing']) == 0 and
         all(f['exists'] for f in status['files'])
     )
     
@@ -220,7 +228,6 @@ def suggest_mode() -> str:
     if status_light['ready']:
         return 'light'
     
-    # 默认建议轻量化
     return 'light'
 
 
@@ -233,7 +240,6 @@ def install(mode: str = 'light', verbose: bool = True):
         print(f"🎬 安装 Video Summarizer ({config['name']})")
         print("=" * 50)
     
-    # 生成并保存脚本
     script_content = generate_install_script(mode)
     install_script = Path(__file__).parent / f"install_{mode}.sh"
     
@@ -261,9 +267,9 @@ def quick_start(mode: str = None):
     print("=" * 60)
     print()
     print("📦 功能特性:")
-    for i, feature in enumerate(config['features'][:5], 1):
+    for i, feature in enumerate(config['features'][:6], 1):
         print(f"  {i}. {feature}")
-    if len(config['features']) > 5:
+    if len(config['features']) > 6:
         print(f"  ... 共 {len(config['features'])} 项")
     print()
     print(f"💾 预估大小: {config['size_estimate']}")
@@ -281,6 +287,14 @@ def quick_start(mode: str = None):
         print()
         print("  CLI:")
         print('    python cli.py url "URL" -f brief')
+        
+        if mode == 'full':
+            print()
+            print("  Web UI:")
+            print("    python web_ui.py --port 7860")
+            print()
+            print("  Whisper:")
+            print("    python whisper_transcribe.py 'audio.wav' --model small")
     else:
         print("⚠️  安装状态: 未完成")
         print()
@@ -301,19 +315,20 @@ def show_modes():
         print(f"   {config['description']}")
         print(f"   大小: {config['size_estimate']}")
         print(f"   文件: {len(config['files'])} 个")
-        print(f"   依赖: {len(config['dependencies'])} 个")
+        print(f"   核心依赖: {len(config['dependencies'])} 个")
+        print(f"   可选依赖: {len(config['optional_dependencies'])} 个")
         print()
         print("   功能:")
-        for feature in config['features'][:4]:
+        for feature in config['features'][:5]:
             print(f"     ✓ {feature}")
-        if len(config['features']) > 4:
+        if len(config['features']) > 5:
             print(f"     ... 共 {len(config['features'])} 项")
     
     print()
     print("=" * 70)
     print("💡 选择建议:")
     print("   - 轻量化: 快速体验，仅核心功能")
-    print("   - 全部:   完整功能，需要更多依赖")
+    print("   - 全部:   完整功能，包含 Whisper + Web UI")
     print()
     print("📖 查看文档: README.md")
     print()
@@ -328,6 +343,7 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
+    parser.add_argument('--mode', choices=['light', 'full'], help='部署模式')
     parser.add_argument('--install', choices=['light', 'full'], help='生成安装脚本')
     parser.add_argument('--check', action='store_true', help='检查安装状态')
     parser.add_argument('--quick', action='store_true', help='快速开始')

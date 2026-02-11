@@ -2,13 +2,13 @@
 
 **支持 45+ 平台的多平台内容总结工具**
 
-> Python API | CLI | MCP Server | Claude Code | OpenCode
+> Python API | CLI | MCP Server | Claude Code | OpenCode | Web UI
 
 ## ✨ 特性
 
 - 🎯 **45+ 平台支持** - 视频、社交、音乐、电商、编程社区
 - 📝 **5 种分析模式** - 简要、详细、时间戳、情感、趋势
-- 🔧 **多种接入方式** - Python、CLI、MCP Server、Claude Code
+- 🔧 **多种接入方式** - Python、CLI、MCP Server、Claude Code、Web UI
 - 💾 **弹幕清洗** - 自动过滤无意义内容
 - 🤖 **大模型友好** - Claude Code、OpenCode 原生接入
 - ⚡ **CLI 增强** - 批量处理、配置文件、缓存管理
@@ -17,7 +17,8 @@
 - 🔍 **视频对比** - 多视频对比分析
 - 🌐 **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
 - 💰 **成本追踪** - Token 统计、成本计算
-- 🎤 **Whisper 支持** - 语音转文字（无字幕时）
+- 🎤 **Whisper 支持** - 语音转文字（可选，无字幕时使用）
+- 🎨 **Web UI** - Gradio 浏览器界面（可选）
 
 ## 🚀 快速开始
 
@@ -387,7 +388,51 @@ tracker.export_json("cost_report.json")
 | DeepSeek-Chat | $0.00014/1K | $0.00028/1K |
 | Claude-3-Opus | $0.015/1K | $0.075/1K |
 
-### 多 LLM 提供商
+## 🎤 Whisper 转录（可选功能）
+
+对于没有字幕的视频，可以使用 Whisper 进行语音转文字：
+
+```bash
+# 安装 Whisper
+pip install faster-whisper
+
+# 转录音频
+python whisper_transcribe.py "audio.wav" --model small
+
+# 转录 YouTube 视频
+python whisper_transcribe.py "https://youtube.com/watch?v=xxx" --model medium
+```
+
+### Whisper 模型对比
+
+| 模型 | 大小 | 速度 | 推荐场景 |
+|------|------|------|----------|
+| tiny | 39M | 最快 | 快速测试 |
+| base | 74M | 快 | 日常使用 |
+| small | 244M | 中 | **推荐** |
+| medium | 769M | 慢 | 高精度 |
+| large-v3 | 1.5G | 最慢 | 最高精度 |
+
+## 🎨 Web UI（可选功能）
+
+使用 Gradio 在浏览器中操作：
+
+```bash
+# 安装 Gradio
+pip install gradio
+
+# 启动 Web UI
+python web_ui.py --port 7860
+
+# 然后在浏览器打开 http://localhost:7860
+```
+
+Web UI 功能：
+- 📝 视频总结
+- 🎙️ Whisper 转录
+- 📊 实时进度显示
+
+## 🔧 部署管理
 ```python
 from advanced import LLMFactories, quick_summarize
 
