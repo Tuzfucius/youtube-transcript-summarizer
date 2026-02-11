@@ -26,6 +26,11 @@ def setup_logger(name: str = "VideoSummarizer", level: int = logging.INFO, log_f
     logger.setLevel(level)
     logger.handlers.clear()
     
+    # 添加 success 方法
+    def success(msg):
+        logger.log(logging.INFO, f"✅ {msg}")
+    logger.success = success
+    
     fmt = logging.Formatter('%(asctime)s | %(levelname)-8s | %(message)s', datefmt='%H:%M:%S')
     
     ch = logging.StreamHandler()
@@ -314,20 +319,46 @@ def extract_video(url: str, use_subtitle: bool = True, clean_danmaku_flag: bool 
         
         if not content:
             r = requests.get(f"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}", headers=headers, timeout=10)
-            try: dm_content = gzip.decompress(r.content)
-            except: dm_content = r.content
-            
-            root = ET.fromstring(dm_content)
-            danmaku = []
-            for d_elem in root.findall(".//d"):
-                p = d_elem.get("p", "").split(",")
-                if len(p) >= 5:
-                    danmaku.append({'time': float(p[0]), 'text': d_elem.text or ''})
-            
-            if clean_danmaku_flag:
-                danmaku = clean_danmaku(danmaku)
-            
-            content = ' '.join([d['text'] for d in danmaku[:500]])
+            try:
+                dm_content = r.content
+                # 尝试解压
+                try:
+                    dm_content = gzip.decompress(dm_content)
+                except:
+                    pass
+                
+                # 尝试解析 XML，处理格式错误
+                danmaku = []
+                try:
+                    root = ET.fromstring(dm_content)
+                    for d_elem in root.findall(".//d"):
+                        p = d_elem.get("p", "").split(",")
+                        if len(p) >= 1:
+                            try:
+                                danmaku.append({'time': float(p[0]), 'text': d_elem.text or ''})
+                            except:
+                                danmaku.append({'time': 0, 'text': d_elem.text or ''})
+                except ET.ParseError as e:
+                    # XML 解析错误，尝试清理内容后重试
+                    logger.warning(f"弹幕 XML 解析错误，尝试清理: {e}")
+                    import re
+                    # 清理损坏的 XML 标签
+                    cleaned = re.sub(b'<[^>]+>', b'', dm_content)
+                    try:
+                        content_str = cleaned.decode('utf-8', errors='ignore')
+                        # 提取所有文本
+                        texts = re.findall(r'>([^<]+)<', content_str)
+                        danmaku = [{'time': 0, 'text': t.strip()} for t in texts if t.strip()][:500]
+                    except:
+                        danmaku = []
+                
+                if clean_danmaku_flag:
+                    danmaku = clean_danmaku(danmaku)
+                
+                content = ' '.join([d['text'] for d in danmaku[:500]])
+            except Exception as e:
+                logger.warning(f"弹幕获取失败: {e}")
+                content = ""
         
         return {
             'platform': 'bilibili', 'id': bvid, 'url': url,
@@ -476,4 +507,4 @@ __all__ = [
     'DEFAULT_PROMPTS'
 ]
 
-__version__ = "3.8.5"
+__version__ = "3.8.7"
