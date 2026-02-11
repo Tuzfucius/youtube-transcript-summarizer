@@ -453,6 +453,20 @@ print(report['comparison']['platforms'])  # 平台分布
 | **视频对比** | ❌ | ✅ |
 | **MCP Server** | ❌ | ✅ |
 | **Claude Code** | ❌ | ✅ |
+| **字幕导出** | ❌ | ✅ |
+
+### 新功能：仅导出字幕
+
+```bash
+# 导出字幕为 TXT
+python export_subtitle.py "URL" -f txt
+
+# 导出为 JSON
+python export_subtitle.py "URL" -f json -o output.json
+
+# 批量导出
+python export_subtitle.py --batch urls.txt -d ./subtitles
+```
 
 ### 安装方式
 

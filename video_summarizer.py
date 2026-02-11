@@ -25,6 +25,12 @@ def setup_logger(name: str = "VideoSummarizer", log_file: str = None):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
+    
+    # 添加 success 方法
+    def success(msg):
+        logger.log(logging.INFO, f"✅ {msg}")
+    logger.success = success
+    
     fmt = logging.Formatter('%(asctime)s | %(levelname)-8s | %(message)s', datefmt='%H:%M:%S')
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
@@ -224,8 +230,18 @@ class BilibiliExtractor:
         try: content = gzip.decompress(r.content)
         except: content = r.content
         root = ET.fromstring(content)
-        return [{'time': float(p.split(',')[0]), 'text': d.text or ''} 
-                for d in root.findall('.//d') if (p := d.get('p', '').split(',') if d.get('p') else [])]
+        result = []
+        for d in root.findall('.//d'):
+            p_str = d.get('p', '')
+            if not p_str:
+                continue
+            p = p_str.split(',')
+            if len(p) >= 1:
+                try:
+                    result.append({'time': float(p[0]), 'text': d.text or ''})
+                except:
+                    pass
+        return result
     
     @staticmethod
     @handle_errors(default_return=([], {"total":0,"kept":0}))
