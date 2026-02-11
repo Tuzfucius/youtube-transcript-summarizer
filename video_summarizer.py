@@ -18,9 +18,167 @@ import requests
 import gzip
 import xml.etree.ElementTree as ET
 import re
+import hashlib
 from datetime import datetime
-from typing import Optional, List, Dict, Callable
+from typing import Optional, List, Dict, Callable, Tuple
 from pathlib import Path
+from collections import Counter
+
+
+# ============== 弹幕清洗器 ==============
+class DanmakuCleaner:
+    """弹幕清洗器 - 去除无意义内容"""
+    
+    # 无意义弹幕模式
+    PATTERNS = [
+        r'^[\d\.\,\-\+\=\s]+$',           # 纯数字/符号
+        r'^[\uD83C-\uDBFF\uDC00-\uDFFF]+$',  # 单独表情
+        r'^.{1,2}$',                       # 少于3字符
+        r'^[\w\s]{1,5}$',                  # 极短英文/数字
+        r'^(he|hi|ok|yes|no|up|666)+$',   # 常见刷屏词
+    ]
+    
+    # 保留模式（高价值弹幕）
+    KEEP_PATTERNS = [
+        r'[\u4e00-\u9fff]{2,}',            # 2个以上中文字
+        r'[，。！？\.\!\?]{2,}',            # 有标点的完整句
+        r'笑|哭|泪|牛逼|顶|赞|帅|美|可爱|哈哈|呜呜',  # 情感词
+        r'\d{1,2}:\d{2}',                  # 时间戳
+        r'\[\S+\]',                        # 括号内容（如[支持]）
+    ]
+    
+    @classmethod
+    def clean(cls, danmaku: List[Dict], 
+              remove_short: bool = True,
+              remove_spam: bool = True,
+              min_length: int = 2,
+              max_length: int = 50) -> Tuple[List[Dict], Dict]:
+        """
+        清洗弹幕
+        
+        Args:
+            danmaku: 原始弹幕列表
+            remove_short: 去除极短弹幕
+            remove_spam: 去除刷屏内容
+            min_length: 最小长度
+            max_length: 最大长度
+            
+        Returns:
+            (清洗后弹幕, 统计信息)
+        """
+        cleaned = []
+        stats = {
+            "total": len(danmaku),
+            "removed_short": 0,
+            "removed_spam": 0,
+            "removed_pattern": 0,
+            "kept": 0
+        }
+        
+        # 统计刷屏内容
+        if remove_spam:
+            text_counter = Counter([d['text'] for d in danmaku])
+            spam_threshold = max(3, len(danmaku) // 100)  # 超过此数量视为刷屏
+            spam_texts = {text for text, count in text_counter.items() 
+                         if count >= spam_threshold}
+        else:
+            spam_texts = set()
+        
+        for d in danmaku:
+            text = d.get('text', '').strip()
+            length = len(text)
+            
+            # 长度过滤
+            if length < min_length or length > max_length:
+                stats["removed_short"] += 1
+                continue
+            
+            # 刷屏过滤
+            if text in spam_texts:
+                stats["removed_spam"] += 1
+                continue
+            
+            # 模式过滤（去除无意义）
+            is_meaningless = True
+            for pattern in cls.KEEP_PATTERNS:
+                if re.search(pattern, text):
+                    is_meaningless = False
+                    break
+            
+            if is_meaningless:
+                # 检查是否匹配无意义模式
+                for pattern in cls.PATTERNS:
+                    if re.match(pattern, text):
+                        stats["removed_pattern"] += 1
+                        break
+                else:
+                    # 什么都没匹配到，也可能是无意义的
+                    if not re.search(r'[\u4e00-\u9fff]', text):
+                        stats["removed_pattern"] += 1
+                        continue
+            
+            cleaned.append({
+                'time': d.get('time', 0),
+                'text': text,
+                'hash': hashlib.md5(text.encode()).hexdigest()[:8]
+            })
+            stats["kept"] += 1
+        
+        return cleaned, stats
+    
+    @classmethod
+    def extract_keywords(cls, danmaku: List[Dict], top_n: int = 20) -> List[Tuple[str, int]]:
+        """提取高频词"""
+        stop_words = {'的', '是', '了', '在', '我', '有', '和', '就', '不', '人', '都', '一',
+                     '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着',
+                     '没有', '看', '好', '自己', '这', '那', '什么', '这个', '那个'}
+        
+        word_freq = Counter()
+        for d in danmaku:
+            text = d.get('text', '')
+            # 提取中文词
+            words = re.findall(r'[\u4e00-\u9fff]{2,4}', text)
+            for word in words:
+                if word not in stop_words:
+                    word_freq[word] += 1
+        
+        return word_freq.most_common(top_n)
+    
+    @classmethod
+    def extract_emotions(cls, danmaku: List[Dict]) -> Dict:
+        """情感分析"""
+        emotions = {
+            'positive': 0,    # 正面
+            'negative': 0,    # 负面
+            'neutral': 0,     # 中性
+            'funny': 0,       # 搞笑
+            'moved': 0,       # 感动
+            'surprised': 0,   # 惊讶
+        }
+        
+        patterns = {
+            'positive': r'赞|顶|好|棒|帅|美|爱|支持|加油|牛',
+            'negative': r'差|烂|丑|垃圾|失望|无聊|困|睡着',
+            'funny': r'笑|哈哈|嘻嘻|逗|搞笑|有趣|乐',
+            'moved': r'泪|哭|感动|戳|暖|戳心|破防',
+            'surprised': r'卧槽|卧操|卧槽|震惊|惊了|牛逼|牛',
+        }
+        
+        for d in danmaku:
+            text = d.get('text', '')
+            matched = False
+            for emotion, pattern in patterns.items():
+                if re.search(pattern, text):
+                    emotions[emotion] += 1
+                    matched = True
+            if not matched:
+                emotions['neutral'] += 1
+        
+        total = sum(emotions.values())
+        if total > 0:
+            emotions = {k: f"{v/total*100:.1f}%" for k, v in emotions.items()}
+        
+        return emotions
 
 
 # ============== 平台检测 ==============
@@ -205,7 +363,76 @@ class BilibiliExtractor:
         }
     
     @staticmethod
+    def get_subtitles(bvid: str, cid: int) -> Dict:
+        """
+        获取 B站字幕（CC字幕/自动字幕）
+        
+        Returns:
+            {
+                "has_subtitle": bool,
+                "subtitles": [{"lang": "zh-CN", "url": "..."}],
+                "subtitle_url": str or None,
+                "subtitle_text": str or None
+            }
+        """
+        try:
+            # 获取字幕列表
+            resp = requests.get(
+                f"https://api.bilibili.com/x/player/v2?bvid={bvid}&cid={cid}",
+                headers=BilibiliExtractor.HEADERS,
+                timeout=10
+            )
+            data = resp.json()
+            
+            if data.get("code") != 0:
+                return {"has_subtitle": False, "error": data.get("message")}
+            
+            subtitle_data = data.get("data", {}).get("subtitle")
+            if not subtitle_data or not subtitle_data.get("subtitles"):
+                return {"has_subtitle": False, "reason": "no_subtitle"}
+            
+            subtitles = []
+            for sub in subtitle_data.get("subtitles", []):
+                subtitles.append({
+                    "lang": sub.get("lan", "unknown"),
+                    "url": sub.get("subtitle_url"),
+                    "id": sub.get("id")
+                })
+            
+            # 下载第一个可用字幕
+            subtitle_text = None
+            for sub in subtitles:
+                if sub["url"]:
+                    sub_resp = requests.get(
+                        f"https:{sub['url']}",
+                        timeout=10
+                    )
+                    try:
+                        sub_data = sub_resp.json()
+                        # 解析字幕格式
+                        lines = []
+                        for line in sub_data:
+                            if isinstance(line, dict):
+                                content = line.get("content", "")
+                                if content:
+                                    lines.append(content)
+                        subtitle_text = " ".join(lines)
+                        break
+                    except:
+                        continue
+            
+            return {
+                "has_subtitle": True,
+                "subtitles": subtitles,
+                "subtitle_text": subtitle_text,
+                "subtitle_url": subtitles[0].get("url") if subtitles else None
+            }
+        except Exception as e:
+            return {"has_subtitle": False, "error": str(e)}
+    
+    @staticmethod
     def get_danmaku(cid: int) -> List[Dict]:
+        """获取弹幕"""
         resp = requests.get(
             f"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}",
             headers=BilibiliExtractor.HEADERS,
@@ -229,6 +456,27 @@ class BilibiliExtractor:
                 })
         
         return danmaku
+    
+    @staticmethod
+    def clean_danmaku(danmaku: List[Dict], 
+                     remove_short: bool = True,
+                     remove_spam: bool = True,
+                     min_length: int = 2) -> Tuple[List[Dict], Dict]:
+        """
+        清洗弹幕
+        
+        Args:
+            danmaku: 原始弹幕列表
+            remove_short: 去除极短弹幕
+            remove_spam: 去除刷屏内容
+            min_length: 最小长度
+            
+        Returns:
+            (清洗后弹幕, 统计信息)
+        """
+        return DanmakuCleaner.clean(
+            danmaku, remove_short, remove_spam, min_length
+        )
 
 
 # ============== 主总结器 ==============
@@ -275,8 +523,17 @@ class VideoSummarizer:
         """添加自定义 prompt"""
         self.prompts[name] = template
     
-    def extract_content(self, url: str) -> Dict:
-        """提取视频内容"""
+    def extract_content(self, url: str, 
+                        clean_danmaku: bool = True,
+                        use_subtitle: bool = True) -> Dict:
+        """
+        提取视频内容
+        
+        Args:
+            url: 视频链接
+            clean_danmaku: 是否清洗弹幕
+            use_subtitle: 是否优先使用字幕（B站）
+        """
         platform = detect_platform(url)
         
         if platform not in self.PLATFORMS:
@@ -293,32 +550,69 @@ class VideoSummarizer:
                 'info': info,
                 'content': transcript['text'],
                 'content_type': '字幕',
-                'language': transcript['language']
+                'language': transcript['language'],
+                'danmaku_count': 0
             }
         
         elif platform == 'bilibili':
             bvid = extractor.extract_bvid(url)
             info = extractor.get_video_info(bvid)
-            danmaku = extractor.get_danmaku(info['cid'])
-            danmaku_text = ' '.join([d['text'] for d in danmaku[:500]])
+            
+            # 优先使用字幕
+            content_text = ""
+            content_type = "弹幕"
+            subtitle_info = None
+            
+            if use_subtitle:
+                subtitle_info = extractor.get_subtitles(bvid, info['cid'])
+                if subtitle_info.get("has_subtitle") and subtitle_info.get("subtitle_text"):
+                    content_text = subtitle_info["subtitle_text"]
+                    content_type = "字幕"
+            
+            # 如果没有字幕，使用弹幕
+            if not content_text:
+                danmaku = extractor.get_danmaku(info['cid'])
+                
+                # 弹幕清洗
+                clean_data, stats = extractor.clean_danmaku(danmaku)
+                content_text = " ".join([d['text'] for d in clean_data])
+                
+                return {
+                    'platform': platform,
+                    'info': info,
+                    'content': content_text,
+                    'content_type': content_type,
+                    'language': 'zh',
+                    'danmaku_count': len(danmaku),
+                    'danmaku_cleaned': len(clean_data),
+                    'danmaku_stats': stats,
+                    'subtitle_info': subtitle_info
+                }
+            
             return {
                 'platform': platform,
                 'info': info,
-                'content': danmaku_text,
-                'content_type': '弹幕',
-                'danmaku_count': len(danmaku),
-                'danmaku': danmaku_text[:500],
-                'language': 'zh'
+                'content': content_text,
+                'content_type': content_type,
+                'language': 'zh',
+                'danmaku_count': 0,
+                'subtitle_info': subtitle_info
             }
     
     def summarize(self, content: Dict, prompt_type: str = "brief", 
                  custom_prompt: str = None, max_length: int = 500) -> str:
         """生成总结"""
         
-        # 构建变量
+        # 构建变量（转义花括号）
         platform_info = self.PLATFORMS.get(content['platform'], {})
         info = content['info']
         
+        # 安全转义文本
+        danmaku_text = (content.get('content', '') or '')[:2000]
+        danmaku_text = danmaku_text.replace('{', '{{').replace('}', '}}')
+        subtitle_text = danmaku_text
+        
+        # 只取安全的字段，不用 danmaku 变量
         variables = {
             'platform': platform_info.get('name', content['platform']),
             'title': info.get('title', ''),
@@ -328,21 +622,33 @@ class VideoSummarizer:
             'views': info.get('stat', {}).get('view', 0),
             'likes': info.get('stat', {}).get('like', 0),
             'coins': info.get('stat', {}).get('coin', 0),
-            'subtitle': content.get('content', '')[:2000],
-            'danmaku': content.get('danmaku', '')[:2000],
-            'danmaku_count': content.get('danmaku_count', 0),
             'max_length': max_length,
-            **info
         }
         
-        # 选择 prompt
-        if custom_prompt:
-            prompt_template = custom_prompt
-        else:
-            prompt_template = self.prompts.get(prompt_type, self.prompts["brief"])
+        # 获取内容文本
+        content_text = (content.get('content', '') or '')[:3000]
         
-        # 渲染 prompt
-        prompt = prompt_template.format(**variables)
+        # 替换变量
+        if custom_prompt:
+            prompt = custom_prompt
+        else:
+            prompt = self.prompts.get(prompt_type, self.prompts["brief"])
+        
+        # 简单替换
+        prompt = prompt.replace('{platform}', variables['platform'])
+        prompt = prompt.replace('{title}', variables['title'])
+        prompt = prompt.replace('{author}', variables['author'])
+        prompt = prompt.replace('{desc}', variables['desc'])
+        prompt = prompt.replace('{duration}', str(variables['duration']))
+        prompt = prompt.replace('{views}', str(variables['views']))
+        prompt = prompt.replace('{likes}', str(variables['likes']))
+        prompt = prompt.replace('{coins}', str(variables['coins']))
+        prompt = prompt.replace('{max_length}', str(variables['max_length']))
+        
+        # 替换 danmaku/subtitle
+        safe_content = content_text.replace('{', '{{').replace('}', '}}')
+        prompt = prompt.replace('{danmaku}', safe_content)
+        prompt = prompt.replace('{subtitle}', safe_content)
         
         # 调用 API
         if not self.api_key:
@@ -368,15 +674,42 @@ class VideoSummarizer:
     
     def process(self, url: str, prompt_type: str = "brief", 
                 custom_prompt: str = None, max_length: int = 500, 
-                save: bool = True) -> Dict:
-        """完整处理流程"""
+                save: bool = True,
+                clean_danmaku: bool = True,
+                use_subtitle: bool = True) -> Dict:
+        """
+        完整处理流程
         
+        Args:
+            url: 视频链接
+            prompt_type: 总结格式
+            custom_prompt: 自定义 prompt
+            max_length: 最大长度
+            save: 是否保存
+            clean_danmaku: 是否清洗弹幕
+            use_subtitle: 是否优先使用字幕（B站）
+        """
         platform = detect_platform(url)
         platform_name = self.PLATFORMS.get(platform, {}).get('name', platform)
         
         print(f"🎬 提取 {platform_name} 视频内容...")
-        content = self.extract_content(url)
+        content = self.extract_content(
+            url, 
+            clean_danmaku=clean_danmaku,
+            use_subtitle=use_subtitle
+        )
         print(f"✅ 获取到: {content['info'].get('title', content['info'].get('id', ''))}")
+        
+        # 显示统计信息
+        if content.get('danmaku_stats'):
+            stats = content['danmaku_stats']
+            print(f"📊 弹幕统计: 总计{stats['total']} → 保留{stats['kept']} (移除{stats['total']-stats['kept']})")
+        
+        if content.get('subtitle_info'):
+            if content['subtitle_info'].get('has_subtitle'):
+                print(f"✅ 使用字幕内容")
+            else:
+                print(f"ℹ️ 无字幕，使用弹幕")
         
         print(f"✍️ 生成总结...")
         summary = self.summarize(content, prompt_type, custom_prompt, max_length)
@@ -390,6 +723,12 @@ class VideoSummarizer:
             "timestamp": datetime.now().isoformat()
         }
         
+        # 添加额外信息
+        if content.get('danmaku_stats'):
+            output['danmaku_stats'] = content['danmaku_stats']
+        if content.get('subtitle_info'):
+            output['subtitle_info'] = content['subtitle_info']
+        
         if save:
             video_id = content['info'].get('bvid') or content['info'].get('id', 'unknown')
             filename = f"video-summary-{video_id}.md"
@@ -401,6 +740,17 @@ class VideoSummarizer:
     def _save_to_file(self, output: Dict, filename: str):
         """保存到文件"""
         info = output['video_info']
+        
+        # 构建额外信息
+        extra_info = []
+        if output.get('danmaku_stats'):
+            stats = output['danmaku_stats']
+            extra_info.append(f"- **弹幕统计**: {stats['kept']}/{stats['total']} (保留率{stats['kept']/max(1,stats['total'])*100:.1f}%)")
+        if output.get('subtitle_info'):
+            sub = output['subtitle_info']
+            if sub.get('has_subtitle'):
+                extra_info.append(f"- **字幕**: 已获取")
+        
         content = f"""# {info.get('title', '视频总结')}
 
 ## 视频信息
@@ -409,7 +759,9 @@ class VideoSummarizer:
 - **作者**: {info.get('owner', info.get('name', ''))}
 - **链接**: {info.get('url', '')}
 {"- **弹幕数**: " + str(output.get('danmaku_count', 'N/A')) if output.get('danmaku_count') else ""}
+- **内容类型**: {output['content_type']}
 - **生成时间**: {output['timestamp']}
+{chr(10).join(['  ' + line for line in extra_info]) if extra_info else ""}
 
 ---
 
@@ -430,18 +782,21 @@ def main():
   # YouTube 简要总结
   python video_summarizer.py "https://youtube.com/watch?v=xxx" -f brief
   
-  # B站 详细分析
+  # B站 详细分析（自动清洗弹幕）
   python video_summarizer.py "https://bilibili.com/video/BVxxx" -f detailed
   
+  # B站 强制使用弹幕（不洗）
+  python video_summarizer.py "https://bilibili.com/video/BVxxx" --no-clean
+  
   # 自定义 prompt
-  python video_summarizer.py "URL" --prompt "请用100字总结这个视频"
+  python video_summarizer.py "URL" -p "请用100字总结这个视频"
   
   # 情感分析
   python video_summarizer.py "URL" -f sentiment
 
 支持的平台:
   - YouTube (字幕分析)
-  - Bilibili (弹幕分析)
+  - Bilibili (弹幕 + 字幕分析)
         """
     )
     
@@ -456,6 +811,8 @@ def main():
     parser.add_argument("--api-url", help="API URL")
     parser.add_argument("--model", help="模型名称")
     parser.add_argument("--no-save", action="store_true", help="不保存到文件")
+    parser.add_argument("--no-clean", action="store_true", help="不清洗弹幕")
+    parser.add_argument("--no-subtitle", action="store_true", help="不使用字幕（强制用弹幕）")
     parser.add_argument("--list-prompts", action="store_true", help="列出所有可用 prompt")
     
     args = parser.parse_args()
@@ -483,7 +840,9 @@ def main():
             args.format, 
             args.prompt, 
             args.max_length,
-            save=not args.no_save
+            save=not args.no_save,
+            clean_danmaku=not args.no_clean,
+            use_subtitle=not args.no_subtitle
         )
         print(f"\n✅ 完成!\n\n{result['summary'][:600]}")
     except Exception as e:
