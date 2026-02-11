@@ -184,15 +184,21 @@ class DanmakuCleaner:
 # ============== 平台检测 ==============
 def detect_platform(url: str) -> str:
     """检测视频平台"""
-    if 'youtube.com' in url or 'youtu.be' in url:
+    url_lower = url.lower()
+    
+    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
         return 'youtube'
-    elif 'bilibili.com' in url or 'b站' in url.lower():
+    elif 'bilibili.com' in url_lower or 'b站' in url_lower:
         return 'bilibili'
-    elif 'tiktok.com' in url:
-        return 'tiktok'
-    elif 'twitter.com' in url or 'x.com' in url:
+    elif 'tiktok.com' in url_lower or 'douyin' in url_lower:
+        return 'douyin'
+    elif 'ixigua.com' in url_lower or '西瓜视频' in url:
+        return 'xigua'
+    elif 'weibo.com' in url_lower:
+        return 'weibo'
+    elif 'twitter.com' in url_lower or 'x.com' in url_lower:
         return 'twitter'
-    elif 'instagram.com' in url:
+    elif 'instagram.com' in url_lower:
         return 'instagram'
     else:
         return 'unknown'
@@ -479,6 +485,133 @@ class BilibiliExtractor:
         )
 
 
+# ============== 抖音/TikTok 平台 ==============
+class DouyinExtractor:
+    """抖音/TikTok 视频提取器"""
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """从 URL 提取视频 ID"""
+        patterns = [
+            r'/video/(\d+)',
+            r'v/(\d+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        return None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息（模拟）"""
+        video_id = DouyinExtractor.extract_video_id(url)
+        return {
+            'id': video_id,
+            'url': url,
+            'title': f'抖音视频 {video_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'douyin'
+        }
+
+
+# ============== 西瓜视频 平台 ==============
+class XiguaExtractor:
+    """西瓜视频提取器"""
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """提取视频 ID"""
+        match = re.search(r'/video/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息"""
+        video_id = XiguaExtractor.extract_video_id(url)
+        return {
+            'id': video_id,
+            'url': url,
+            'title': f'西瓜视频 {video_id}',
+            'desc': '',
+            'author': '未知创作者',
+            'platform': 'xigua'
+        }
+
+
+# ============== 微博 平台 ==============
+class WeiboExtractor:
+    """微博视频提取器"""
+    
+    @staticmethod
+    def extract_status_id(url: str) -> Optional[str]:
+        """提取微博 ID"""
+        match = re.search(r'/(\d+)/(?:album|video)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取视频信息"""
+        status_id = WeiboExtractor.extract_status_id(url)
+        return {
+            'id': status_id,
+            'url': url,
+            'title': f'微博视频 {status_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'weibo'
+        }
+
+
+# ============== Twitter/X 平台 ==============
+class TwitterExtractor:
+    """Twitter/X 视频提取器"""
+    
+    @staticmethod
+    def extract_tweet_id(url: str) -> Optional[str]:
+        """提取推文 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取推文信息"""
+        tweet_id = TwitterExtractor.extract_tweet_id(url)
+        return {
+            'id': tweet_id,
+            'url': url,
+            'title': f'Twitter 推文 {tweet_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'twitter'
+        }
+
+
+# ============== Instagram 平台 ==============
+class InstagramExtractor:
+    """Instagram 视频提取器"""
+    
+    @staticmethod
+    def extract_media_id(url: str) -> Optional[str]:
+        """提取媒体 ID"""
+        match = re.search(r'/p/([A-Za-z0-9_-]+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取媒体信息"""
+        media_id = InstagramExtractor.extract_media_id(url)
+        return {
+            'id': media_id,
+            'url': url,
+            'title': f'Instagram 帖子 {media_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'instagram'
+        }
+
+
 # ============== 主总结器 ==============
 class VideoSummarizer:
     """多平台视频总结器"""
@@ -495,6 +628,36 @@ class VideoSummarizer:
             'extractor': BilibiliExtractor,
             'content_type': '弹幕',
             'api_required': True
+        },
+        'douyin': {
+            'name': '抖音',
+            'extractor': DouyinExtractor,
+            'content_type': '描述',
+            'api_required': False
+        },
+        'xigua': {
+            'name': '西瓜视频',
+            'extractor': XiguaExtractor,
+            'content_type': '描述',
+            'api_required': False
+        },
+        'weibo': {
+            'name': '微博',
+            'extractor': WeiboExtractor,
+            'content_type': '文本',
+            'api_required': False
+        },
+        'twitter': {
+            'name': 'Twitter/X',
+            'extractor': TwitterExtractor,
+            'content_type': '文本',
+            'api_required': False
+        },
+        'instagram': {
+            'name': 'Instagram',
+            'extractor': InstagramExtractor,
+            'content_type': '文本',
+            'api_required': False
         }
     }
     
@@ -597,6 +760,18 @@ class VideoSummarizer:
                 'language': 'zh',
                 'danmaku_count': 0,
                 'subtitle_info': subtitle_info
+            }
+        
+        # 其他平台（抖音、西瓜、微博、Twitter、Instagram）
+        else:
+            info = extractor.get_video_info(url)
+            return {
+                'platform': platform,
+                'info': info,
+                'content': info.get('desc', ''),
+                'content_type': self.PLATFORMS[platform]['content_type'],
+                'language': 'unknown',
+                'danmaku_count': 0
             }
     
     def summarize(self, content: Dict, prompt_type: str = "brief", 
