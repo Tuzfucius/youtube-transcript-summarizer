@@ -1,0 +1,122 @@
+{
+  "name": "video-summarizer",
+  "version": "3.8.0",
+  "description": "Summarize video content from any platform",
+  "command": "python",
+  "args": ["-m", "video_summarizer", "--mcp-stdio"],
+  "env": {
+    "MINIMAX_API_KEY": "${MINIMAX_API_KEY}",
+    "VIDEO_SUMMARIZER_API_URL": "${VIDEO_SUMMARIZER_API_URL}",
+    "VIDEO_SUMMARIZER_MODEL": "${VIDEO_SUMMARIZER_MODEL}"
+  },
+  "tools": [
+    {
+      "name": "summarize_video",
+      "description": "Summarize video content from any platform (YouTube, Bilibili, Douyin, Twitter, etc.)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Video URL to summarize (required)"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["brief", "detailed", "timestamp", "sentiment", "trend"],
+            "default": "brief",
+            "description": "Summary format"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Custom prompt for analysis"
+          },
+          "max_length": {
+            "type": "integer",
+            "default": 500,
+            "description": "Maximum summary length"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "API key for LLM service"
+          },
+          "api_url": {
+            "type": "string",
+            "description": "LLM API URL"
+          },
+          "model": {
+            "type": "string",
+            "description": "LLM model name"
+          }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "extract_video",
+      "description": "Extract content from video without summarization",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Video URL"
+          },
+          "clean_danmaku": {
+            "type": "boolean",
+            "default": true,
+            "description": "Clean danmaku (BiliBili only)"
+          },
+          "use_subtitle": {
+            "type": "boolean",
+            "default": true,
+            "description": "Prefer subtitle over danmaku"
+          }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "detect_platform",
+      "description": "Detect platform of a URL",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to detect"
+          }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "list_platforms",
+      "description": "List all supported platforms",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_summary_formats",
+      "description": "List all available summary formats",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "platforms": [
+    "youtube", "bilibili", "douyin", "kuaishou", "xigua", "twitch", "vimeo",
+    "weibo", "twitter", "instagram", "xiaohongshu", "zhihu", "telegram",
+    "reddit", "medium", "quora", "pinterest", "snapchat",
+    "netease", "qqmusic", "soundcloud", "podcast",
+    "taobao", "tmall", "jd", "dewu", "zhuanzhuan", "xianyu", "amazon",
+    "ebay", "etsy", "shopify", "meituan", "eleme",
+    "ctrip", "mafengwo", "airbnb",
+    "codeforces", "leetcode",
+    "douban", "tieba", "lofter", "cyzone", "douyu", "huya", "yy"
+  ],
+  "formats": ["brief", "detailed", "timestamp", "sentiment", "trend"],
+  "requirements": ["youtube-transcript-api>=0.6.0", "requests>=2.31.0"]
+}
