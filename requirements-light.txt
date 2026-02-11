@@ -1,0 +1,5 @@
+# Video Summarizer Requirements
+# Mode: light
+
+youtube-transcript-api
+requests

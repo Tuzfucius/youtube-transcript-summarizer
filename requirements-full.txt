@@ -1,0 +1,9 @@
+# Video Summarizer Requirements
+# Mode: full
+
+youtube-transcript-api
+requests
+
+# Optional Dependencies (install manually if needed)
+# faster-whisper  # Whisper transcription
+# yt-dlp          # Video download

@@ -224,7 +224,14 @@ python cli.py config --get api_key
 ## 📦 安装
 
 ```bash
-pip install -r requirements.txt
+# 轻量化安装（推荐快速体验）
+pip install -r requirements-light.txt
+
+# 全部安装（完整功能）
+pip install -r requirements-full.txt
+
+# 可选：Whisper 支持
+pip install faster-whisper yt-dlp
 ```
 
 ## 📁 文件结构
@@ -232,6 +239,19 @@ pip install -r requirements.txt
 ```
 youtube-summarizer/
 ├── __init__.py           # Python API
+├── video_summarizer.py   # 核心模块
+├── cli.py                # CLI 工具 (full)
+├── advanced.py           # 高级功能 (full)
+├── mcp_server.py         # MCP Server (full)
+├── claude_code.py        # Claude Code 集成 (full)
+├── deploy.py             # 部署管理 (new!)
+│
+├── requirements-light.txt # 轻量化依赖
+├── requirements-full.txt  # 全部依赖
+│
+├── config.example.json   # 配置示例
+├── SKILL.md              # Skill 文档
+└── README.md             # 本文档
 ├── video_summarizer.py   # 核心模块
 ├── cli.py                # CLI 工具 (新增)
 ├── mcp_server.py         # MCP Server
@@ -417,9 +437,81 @@ print(report['comparison']['platforms'])  # 平台分布
 
 *Built with ❤️ by OpenClaw*
 
+## 📦 部署方式
+
+### 部署模式对比
+
+| | 轻量化部署 | 全部部署 |
+|---|---|---|
+| **大小** | ~500KB | ~2MB |
+| **依赖** | 2 个 | 2 个 (+ 可选) |
+| **文件** | 2 个 | 6 个 |
+| **核心功能** | ✅ 总结/提取/清洗 | ✅ 全部功能 |
+| **CLI 工具** | ❌ | ✅ |
+| **异步并发** | ❌ | ✅ |
+| **历史记录** | ❌ | ✅ |
+| **视频对比** | ❌ | ✅ |
+| **MCP Server** | ❌ | ✅ |
+| **Claude Code** | ❌ | ✅ |
+
+### 安装方式
+
+#### 轻量化部署（推荐快速体验）
+
+```bash
+# 安装依赖
+pip install -r requirements-light.txt
+
+# 使用
+python -c "from video_summarizer import summarize; print(summarize('URL'))"
+```
+
+#### 全部部署（完整功能）
+
+```bash
+# 安装依赖
+pip install -r requirements-full.txt
+
+# 可选：安装 Whisper（语音转文字）
+pip install faster-whisper yt-dlp
+
+# 运行部署向导
+python deploy.py --quick
+```
+
+### 部署管理命令
+
+```bash
+# 查看模式对比
+python deploy.py --show
+
+# 快速开始
+python deploy.py --quick
+
+# 检查安装状态
+python deploy.py --check --mode full
+
+# 生成安装脚本
+python deploy.py --install light   # 轻量化
+python deploy.py --install full   # 全部
+```
+
+### 部署脚本
+
+运行后会生成对应脚本：
+- `install_light.sh` - 轻量化安装脚本
+- `install_full.sh` - 全部安装脚本
+
+```bash
+# 使用安装脚本
+bash install_light.sh
+# 或
+bash install_full.sh
+```
+
 ## 更新日志
 
-### v3.8.4 (2026-02-11) - 整合开源项目
+### v3.8.5 (2026-02-11) - 部署模式
 
 **参考项目**：
 - [TubeWhale](https://github.com/yaninsanity/TubeWhale) - 多 Agent 架构、SQLite 持久化、Token 统计
