@@ -476,4 +476,4 @@ __all__ = [
     'DEFAULT_PROMPTS'
 ]
 
-__version__ = "3.8.1"
+__version__ = "3.8.4"

@@ -4,7 +4,9 @@ Video Summarizer - 异步支持模块
 支持并发处理多个视频
 """
 
+import sqlite3
 import asyncio
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Callable, Optional
 

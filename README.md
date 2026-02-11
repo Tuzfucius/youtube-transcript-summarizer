@@ -8,7 +8,7 @@
 
 - 🎯 **45+ 平台支持** - 视频、社交、音乐、电商、编程社区
 - 📝 **5 种分析模式** - 简要、详细、时间戳、情感、趋势
-- 🔧 **多种接入方式** - Python、CLI、MCP Server
+- 🔧 **多种接入方式** - Python、CLI、MCP Server、Claude Code
 - 💾 **弹幕清洗** - 自动过滤无意义内容
 - 🤖 **大模型友好** - Claude Code、OpenCode 原生接入
 - ⚡ **CLI 增强** - 批量处理、配置文件、缓存管理
@@ -16,6 +16,8 @@
 - 📊 **历史记录** - SQLite 存储与统计
 - 🔍 **视频对比** - 多视频对比分析
 - 🌐 **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
+- 💰 **成本追踪** - Token 统计、成本计算
+- 🎤 **Whisper 支持** - 语音转文字（无字幕时）
 
 ## 🚀 快速开始
 
@@ -305,6 +307,66 @@ async def main():
 asyncio.run(main())
 ```
 
+### Claude Code Skill 集成
+```python
+from claude_code import (
+    parse_natural_language,
+    claude_code_tool_definitions,
+    CostTracker
+)
+
+# 自然语言解析
+result = parse_natural_language("Summarize this video: https://youtube.com/watch?v=xxx")
+if result:
+    print(f"命令: {result['command']}, URL: {result['url']}")
+
+# Claude Code 工具定义
+tools = claude_code_tool_definitions()
+
+# 成本追踪
+tracker = CostTracker()
+cost = tracker.track(model="gpt-4", prompt_tokens=1000, completion_tokens=500)
+print(f"本次成本: ${cost:.4f}")
+```
+
+### 自然语言命令
+支持自然语言触发：
+```bash
+# 这些命令都会被识别
+summarize this video: https://youtube.com/watch?v=xxx
+总结这个视频：https://bilibili.com/video/BVxxx
+What's in this video? https://twitter.com/xxx
+```
+
+### 成本追踪
+```python
+from claude_code import CostTracker
+
+tracker = CostTracker()
+
+# 记录每次 API 调用
+tracker.track("gpt-4", prompt_tokens=1000, completion_tokens=500)
+tracker.track("MiniMax-M2.1", prompt_tokens=500, completion_tokens=300)
+
+# 获取统计
+summary = tracker.get_summary()
+print(f"总请求: {summary['total_requests']}")
+print(f"总成本: ${summary['total_cost']:.4f}")
+
+# 导出报告
+tracker.export_json("cost_report.json")
+```
+
+### LLM 定价参考
+
+| 模型 | 输入价格 | 输出价格 |
+|------|---------|---------|
+| MiniMax-M2.1 | $0.001/1K | $0.001/1K |
+| GPT-4 | $0.03/1K | $0.06/1K |
+| GPT-3.5-Turbo | $0.0005/1K | $0.0015/1K |
+| DeepSeek-Chat | $0.00014/1K | $0.00028/1K |
+| Claude-3-Opus | $0.015/1K | $0.075/1K |
+
 ### 多 LLM 提供商
 ```python
 from advanced import LLMFactories, quick_summarize
@@ -357,13 +419,29 @@ print(report['comparison']['platforms'])  # 平台分布
 
 ## 更新日志
 
-### v3.8.3 (2026-02-11) - 本次更新
+### v3.8.4 (2026-02-11) - 整合开源项目
 
-- ✨ **异步并发** - AsyncSummarizer 支持多视频并发处理
-- ✨ **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
-- ✨ **历史记录** - SQLite 存储、搜索、统计
-- ✨ **视频对比** - 多视频对比分析报告
-- ✨ **CLI 增强** - 对比、历史、统计命令
+**参考项目**：
+- [TubeWhale](https://github.com/yaninsanity/TubeWhale) - 多 Agent 架构、SQLite 持久化、Token 统计
+- [video-summarizer](https://github.com/liang121/video-summarizer) - Claude Code Skill、自动依赖安装、并行 Whisper
+- [AI-Video-Summarizer](https://github.com/siddharthsky/AI-Video-Summarizer) - 多 LLM 支持、Streamlit UI
+
+**本次更新**：
+- ✨ **Claude Code Skill 集成** - Skill Manifest 和工具定义
+- ✨ **自然语言触发** - 智能识别用户意图
+- ✨ **依赖自动检查** - 检查并提示安装缺失依赖
+- ✨ **成本追踪** - Token 统计、成本计算
+- ✨ **配置文件模板** - 完整配置示例
+- ✨ **Whisper 支持** - 语音转文字（可选功能）
+- ✨ **CLI 增强** - config、cost 命令
+
+### v3.8.3 (2026-02-11)
+
+- ✨ 异步并发 - AsyncSummarizer 支持多视频并发处理
+- ✨ 多 API 支持 - OpenAI、DeepSeek、Anthropic
+- ✨ 历史记录 - SQLite 存储、搜索、统计
+- ✨ 视频对比 - 多视频对比分析报告
+- ✨ CLI 增强 - 对比、历史、统计命令
 
 ### v3.8.2 (2026-02-11)
 
