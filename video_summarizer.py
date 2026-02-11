@@ -213,6 +213,16 @@ def detect_platform(url: str) -> str:
         return 'xiaohongshu'
     elif 'zhihu.com' in url_lower:
         return 'zhihu'
+    elif 't.me' in url_lower:
+        return 'telegram'
+    elif 'pinterest.com' in url_lower:
+        return 'pinterest'
+    elif 'reddit.com' in url_lower:
+        return 'reddit'
+    elif 'medium.com' in url_lower:
+        return 'medium'
+    elif 'quora.com' in url_lower:
+        return 'quora'
     
     # 音乐平台
     elif 'music.163.com' in url_lower:
@@ -239,6 +249,34 @@ def detect_platform(url: str) -> str:
         return 'xianyu'
     elif 'amazon.' in url_lower:
         return 'amazon'
+    elif 'ebay.com' in url_lower:
+        return 'ebay'
+    elif 'etsy.com' in url_lower:
+        return 'etsy'
+    elif 'shopify' in url_lower:
+        return 'shopify'
+    
+    # 本地生活/旅游
+    elif 'meituan.com' in url_lower or '大众点评' in url:
+        return 'meituan'
+    elif 'ele.me' in url_lower:
+        return 'eleme'
+    elif 'ctrip.com' in url_lower or '携程' in url:
+        return 'ctrip'
+    elif 'mafengwo.cn' in url_lower or '马蜂窝' in url:
+        return 'mafengwo'
+    elif 'airbnb.com' in url_lower:
+        return 'airbnb'
+    
+    # 编程社区
+    elif 'codeforces.com' in url_lower:
+        return 'codeforces'
+    elif 'leetcode.com' in url_lower:
+        return 'leetcode'
+    
+    # 其他
+    elif 'snapchat.com' in url_lower:
+        return 'snapchat'
     
     else:
         return 'unknown'
@@ -1011,6 +1049,378 @@ class AmazonExtractor:
         }
 
 
+# ============== 美团/大众点评 平台 ==============
+class MeituanExtractor:
+    """美团/大众点评商品提取器"""
+    
+    @staticmethod
+    def extract_shop_id(url: str) -> Optional[str]:
+        """提取店铺/商品 ID"""
+        match = re.search(r'/shop/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取店铺信息"""
+        shop_id = MeituanExtractor.extract_shop_id(url)
+        return {
+            'id': shop_id,
+            'url': url,
+            'title': f'美团店铺 {shop_id}',
+            'desc': '',
+            'author': '未知商家',
+            'platform': 'meituan'
+        }
+
+
+# ============== 饿了么 平台 ==============
+class ElemeExtractor:
+    """饿了么商品提取器"""
+    
+    @staticmethod
+    def extract_product_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/product/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        product_id = ElemeExtractor.extract_product_id(url)
+        return {
+            'id': product_id,
+            'url': url,
+            'title': f'饿了么商品 {product_id}',
+            'desc': '',
+            'author': '未知商家',
+            'platform': 'eleme'
+        }
+
+
+# ============== 携程/去哪儿 平台 ==============
+class CtripExtractor:
+    """携程/去哪儿旅游商品提取器"""
+    
+    @staticmethod
+    def extract_tour_id(url: str) -> Optional[str]:
+        """提取旅游产品 ID"""
+        match = re.search(r'/tour/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取旅游产品信息"""
+        tour_id = CtripExtractor.extract_tour_id(url)
+        return {
+            'id': tour_id,
+            'url': url,
+            'title': f'携程旅游 {tour_id}',
+            'desc': '',
+            'author': '未知旅行社',
+            'platform': 'ctrip'
+        }
+
+
+# ============== 马蜂窝 平台 ==============
+class MafengwoExtractor:
+    """马蜂窝旅游攻略提取器"""
+    
+    @staticmethod
+    def extract_note_id(url: str) -> Optional[str]:
+        """提取攻略 ID"""
+        match = re.search(r'/note/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取攻略信息"""
+        note_id = MafengwoExtractor.extract_note_id(url)
+        return {
+            'id': note_id,
+            'url': url,
+            'title': f'马蜂窝攻略 {note_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'mafengwo'
+        }
+
+
+# ============== Airbnb 平台 ==============
+class AirbnbExtractor:
+    """Airbnb 民宿提取器"""
+    
+    @staticmethod
+    def extract_listing_id(url: str) -> Optional[str]:
+        """提取房源 ID"""
+        match = re.search(r'/rooms/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取房源信息"""
+        listing_id = AirbnbExtractor.extract_listing_id(url)
+        return {
+            'id': listing_id,
+            'url': url,
+            'title': f'Airbnb 房源 {listing_id}',
+            'desc': '',
+            'author': '未知房东',
+            'platform': 'airbnb'
+        }
+
+
+# ============== eBay 平台 ==============
+class EbayExtractor:
+    """eBay 商品提取器"""
+    
+    @staticmethod
+    def extract_item_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        item_id = EbayExtractor.extract_item_id(url)
+        return {
+            'id': item_id,
+            'url': url,
+            'title': f'eBay 商品 {item_id}',
+            'desc': '',
+            'author': '未知卖家',
+            'platform': 'ebay'
+        }
+
+
+# ============== Etsy 平台 ==============
+class EtsyExtractor:
+    """Etsy 商品提取器"""
+    
+    @staticmethod
+    def extract_listing_id(url: str) -> Optional[str]:
+        """提取商品 ID"""
+        match = re.search(r'/listing/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商品信息"""
+        listing_id = EtsyExtractor.extract_listing_id(url)
+        return {
+            'id': listing_id,
+            'url': url,
+            'title': f'Etsy 商品 {listing_id}',
+            'desc': '',
+            'author': '未知卖家',
+            'platform': 'etsy'
+        }
+
+
+# ============== Shopify 平台 ==============
+class ShopifyExtractor:
+    """Shopify 商店商品提取器"""
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取商店信息"""
+        return {
+            'id': url,
+            'url': url,
+            'title': f'Shopify 商店',
+            'desc': '',
+            'author': '未知商家',
+            'platform': 'shopify'
+        }
+
+
+# ============== Telegram 平台 ==============
+class TelegramExtractor:
+    """Telegram 频道提取器"""
+    
+    @staticmethod
+    def extract_channel(url: str) -> Optional[str]:
+        """提取频道用户名"""
+        match = re.search(r't\.me/(\w+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取频道信息"""
+        channel = TelegramExtractor.extract_channel(url)
+        return {
+            'id': channel,
+            'url': url,
+            'title': f'Telegram 频道 {channel}',
+            'desc': '',
+            'author': '未知频道',
+            'platform': 'telegram'
+        }
+
+
+# ============== Snapchat 平台 ==============
+class SnapchatExtractor:
+    """Snapchat 故事提取器"""
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取故事信息"""
+        return {
+            'id': url,
+            'url': url,
+            'title': 'Snapchat 故事',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'snapchat'
+        }
+
+
+# ============== Pinterest 平台 ==============
+class PinterestExtractor:
+    """Pinterest 图片提取器"""
+    
+    @staticmethod
+    def extract_pin_id(url: str) -> Optional[str]:
+        """提取 Pin ID"""
+        match = re.search(r'/pin/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取 Pin 信息"""
+        pin_id = PinterestExtractor.extract_pin_id(url)
+        return {
+            'id': pin_id,
+            'url': url,
+            'title': f'Pinterest Pin {pin_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'pinterest'
+        }
+
+
+# ============== Reddit 平台 ==============
+class RedditExtractor:
+    """Reddit 帖子提取器"""
+    
+    @staticmethod
+    def extract_post_id(url: str) -> Optional[str]:
+        """提取帖子 ID"""
+        match = re.search(r'/comments/([a-zA-Z0-9]+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取帖子信息"""
+        post_id = RedditExtractor.extract_post_id(url)
+        return {
+            'id': post_id,
+            'url': url,
+            'title': f'Reddit 帖子 {post_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'reddit'
+        }
+
+
+# ============== Medium 平台 ==============
+class MediumExtractor:
+    """Medium 文章提取器"""
+    
+    @staticmethod
+    def extract_article_id(url: str) -> Optional[str]:
+        """提取文章 ID"""
+        match = re.search(r'/([a-zA-Z0-9-]+)$', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取文章信息"""
+        article_id = MediumExtractor.extract_article_id(url)
+        return {
+            'id': article_id,
+            'url': url,
+            'title': f'Medium 文章 {article_id}',
+            'desc': '',
+            'author': '未知作者',
+            'platform': 'medium'
+        }
+
+
+# ============== Quora 平台 ==============
+class QuoraExtractor:
+    """Quora 回答提取器"""
+    
+    @staticmethod
+    def extract_answer_id(url: str) -> Optional[str]:
+        """提取回答 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取回答信息"""
+        answer_id = QuoraExtractor.extract_answer_id(url)
+        return {
+            'id': answer_id,
+            'url': url,
+            'title': f'Quora 回答 {answer_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'quora'
+        }
+
+
+# ============== Codeforces 平台 ==============
+class CodeforcesExtractor:
+    """Codeforces 比赛/题目提取器"""
+    
+    @staticmethod
+    def extract_problem_id(url: str) -> Optional[str]:
+        """提取题目 ID"""
+        match = re.search(r'contest/(\d+)/problem/(\w+)', url)
+        if match:
+            return f"{match.group(1)}-{match.group(2)}"
+        return None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取题目信息"""
+        problem_id = CodeforcesExtractor.extract_problem_id(url)
+        return {
+            'id': problem_id,
+            'url': url,
+            'title': f'Codeforces {problem_id}',
+            'desc': '',
+            'author': '未知比赛',
+            'platform': 'codeforces'
+        }
+
+
+# ============== LeetCode 平台 ==============
+class LeetCodeExtractor:
+    """LeetCode 题目提取器"""
+    
+    @staticmethod
+    def extract_problem_id(url: str) -> Optional[str]:
+        """提取题目 ID"""
+        match = re.search(r'/problems/([a-zA-Z0-9-]+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取题目信息"""
+        problem_id = LeetCodeExtractor.extract_problem_id(url)
+        return {
+            'id': problem_id,
+            'url': url,
+            'title': f'LeetCode {problem_id}',
+            'desc': '',
+            'author': '未知题目',
+            'platform': 'leetcode'
+        }
+
+
 # ============== 主总结器 ==============
 class VideoSummarizer:
     """多平台视频总结器"""
@@ -1159,6 +1569,110 @@ class VideoSummarizer:
             'name': '亚马逊',
             'extractor': AmazonExtractor,
             'content_type': '商品',
+            'api_required': False
+        },
+        
+        # 本地生活
+        'meituan': {
+            'name': '美团',
+            'extractor': MeituanExtractor,
+            'content_type': '店铺',
+            'api_required': False
+        },
+        'eleme': {
+            'name': '饿了么',
+            'extractor': ElemeExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'ctrip': {
+            'name': '携程',
+            'extractor': CtripExtractor,
+            'content_type': '旅游',
+            'api_required': False
+        },
+        'mafengwo': {
+            'name': '马蜂窝',
+            'extractor': MafengwoExtractor,
+            'content_type': '攻略',
+            'api_required': False
+        },
+        'airbnb': {
+            'name': 'Airbnb',
+            'extractor': AirbnbExtractor,
+            'content_type': '民宿',
+            'api_required': False
+        },
+        
+        # 海淘/跨境电商
+        'ebay': {
+            'name': 'eBay',
+            'extractor': EbayExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'etsy': {
+            'name': 'Etsy',
+            'extractor': EtsyExtractor,
+            'content_type': '商品',
+            'api_required': False
+        },
+        'shopify': {
+            'name': 'Shopify',
+            'extractor': ShopifyExtractor,
+            'content_type': '商店',
+            'api_required': False
+        },
+        
+        # 社交媒体
+        'telegram': {
+            'name': 'Telegram',
+            'extractor': TelegramExtractor,
+            'content_type': '频道',
+            'api_required': False
+        },
+        'snapchat': {
+            'name': 'Snapchat',
+            'extractor': SnapchatExtractor,
+            'content_type': '故事',
+            'api_required': False
+        },
+        'pinterest': {
+            'name': 'Pinterest',
+            'extractor': PinterestExtractor,
+            'content_type': '图片',
+            'api_required': False
+        },
+        'reddit': {
+            'name': 'Reddit',
+            'extractor': RedditExtractor,
+            'content_type': '帖子',
+            'api_required': False
+        },
+        'medium': {
+            'name': 'Medium',
+            'extractor': MediumExtractor,
+            'content_type': '文章',
+            'api_required': False
+        },
+        'quora': {
+            'name': 'Quora',
+            'extractor': QuoraExtractor,
+            'content_type': '回答',
+            'api_required': False
+        },
+        
+        # 编程社区
+        'codeforces': {
+            'name': 'Codeforces',
+            'extractor': CodeforcesExtractor,
+            'content_type': '题目',
+            'api_required': False
+        },
+        'leetcode': {
+            'name': 'LeetCode',
+            'extractor': LeetCodeExtractor,
+            'content_type': '题目',
             'api_required': False
         }
     }
