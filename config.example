@@ -1,16 +1,5 @@
-# YouTube Transcript Summarizer Config
-# 复制此文件为 .env 并填入你的 API Key
-
-# DeepSeek API (推荐)
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-
-# 或 OpenAI API
-OPENAI_API_KEY=your_openai_api_key_here
-
-# LLM 设置
-DEFAULT_PROVIDER=deepseek  # deepseek / openai
-DEFAULT_MODEL=deepseek-chat  # 或 gpt-3.5-turbo
-
-# 输出设置
-DEFAULT_FORMAT=brief  # brief / detailed / timestamp
-MAX_SUMMARY_LENGTH=500
+{
+    "api_key": "your-api-key-here",
+    "api_url": "https://api.minimaxi.com/v1/chat/completions",
+    "model": "MiniMax-M2.1"
+}

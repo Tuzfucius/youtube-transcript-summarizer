@@ -1,163 +1,135 @@
-# 📹 YouTube Transcript Summarizer
+# 🎬 Video Summarizer
 
-基于字幕的 YouTube 视频总结工具。
+多平台视频内容总结工具 - 支持 **YouTube**、**B站** 等平台
+
+## ✨ 特性
+
+- 🎯 **多平台支持** - YouTube（字幕）、B站（弹幕）
+- 📝 **多种分析模式** - 简要、详细、时间戳、情感、趋势
+- 🔧 **自定义 Prompt** - 完全自定义分析角度
+- ⚙️ **灵活配置** - 配置文件、环境变量、命令行参数
+- 💾 **Markdown 输出** - 结构化总结保存
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 安装
 
 ```bash
 cd /home/jetson/.openclaw/workspace/skills/youtube-summarizer
 pip install -r requirements.txt
 ```
 
-### 2. 配置 API Key
+### 配置 API
 
 ```bash
-cp config.example .env
-# 编辑 .env 填入你的 API Key
+# 方式一：配置文件 config.json
+{
+    "api_key": "your-api-key",
+    "api_url": "https://api.minimaxi.com/v1/chat/completions",
+    "model": "MiniMax-M2.1"
+}
+
+# 方式二：命令行参数
+python video_summarizer.py "URL" --api-key "key" --api-url "url"
 ```
 
-### 3. 运行
+### 使用
 
 ```bash
-# 基本使用
-python youtube_summarizer.py "https://www.youtube.com/watch?v=VIDEO_ID"
+# YouTube 简要总结
+python video_summarizer.py "https://youtube.com/watch?v=xxx"
 
-# 详细格式
-python youtube_summarizer.py "https://www.youtube.com/watch?v=VIDEO_ID" -f detailed
+# B站 详细分析
+python video_summarizer.py "https://bilibili.com/video/BVxxx" -f detailed
 
-# 带时间戳
-python youtube_summarizer.py "https://www.youtube.com/watch?v=VIDEO_ID" -f timestamp
+# 情感分析
+python video_summarizer.py "URL" -f sentiment
+
+# 自定义 prompt
+python video_summarizer.py "URL" -p "请从商业角度分析这个视频"
 ```
 
-## 📖 使用示例
+## 📖 Prompt 类型
+
+| 类型 | 说明 |
+|------|------|
+| `brief` | 简要总结（默认） |
+| `detailed` | 详细分析 |
+| `timestamp` | 时间戳要点 |
+| `sentiment` | 情感分析 |
+| `trend` | 趋势分析 |
+
+### 自定义 Prompt
 
 ```bash
-# 简要总结
-python youtube_summarizer.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+python video_summarizer.py "URL" \
+  -p "请从以下角度分析：1. 目标受众是谁？2. 核心卖点是什么？3. 制作水平如何？"
+```
 
-# 详细总结
-python youtube_summarizer.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-  --format detailed --max-length 800
+可用的模板变量：
 
-# 时间戳版本
-python youtube_summarizer.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
-  --format timestamp
+```
+{platform}   - 平台名称
+{title}      - 视频标题
+{author}     - 作者/UP主
+{desc}       - 描述/简介
+{duration}   - 时长（秒）
+{views}      - 播放量
+{likes}      - 点赞数
+{subtitle}   - 字幕内容（YouTube）
+{danmaku}    - 弹幕内容（B站）
+{max_length} - 最大长度
 ```
 
 ## 🔧 CLI 参数
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `url` | YouTube 视频链接 | 必需 |
-| `-f, --format` | 输出格式 | brief |
-| `-m, --max-length` | 最大长度 | 500 |
-| `-p, --provider` | LLM 提供商 | deepseek |
-| `-k, --api-key` | API Key | 从环境变量读取 |
-| `--save/--no-save` | 是否保存文件 | True |
+```
+位置参数:
+  url                  视频链接
 
-## 📝 输出格式
-
-### brief (简要)
-```markdown
-## 摘要
-[简短总结]
-
-## 关键要点
-- 要点 1
-- 要点 2
-- 要点 3
+可选参数:
+  -f, --format         总结格式 (brief/detailed/timestamp/sentiment/trend)
+  -p, --prompt         自定义 prompt 模板
+  -m, --max-length     最大长度 (默认 500)
+  --api-key            API Key
+  --api-url            API URL
+  --model              模型名称
+  --no-save            不保存到文件
+  --list-prompts       列出所有 prompt 类型
 ```
 
-### detailed (详细)
-```markdown
-## 完整摘要
-[详细总结]
-
-## 关键要点
-1. 要点 1
-2. 要点 2
-3. 要点 3
-...
-
-## 结论
-[结论或建议]
-```
-
-### timestamp (时间戳)
-```markdown
-## 摘要
-[一句话总结]
-
-## 时间戳要点
-- [03:12] 相关话题
-- [08:45] 重要信息
-...
-
-## 核心要点
-- 要点 1
-- 要点 2
-- 要点 3
-```
-
-## 🏗️ 架构设计
+## 📁 文件结构
 
 ```
-YouTube URL
+youtube-summarizer/
+├── video_summarizer.py      # 主程序（多平台统一）
+├── youtube_summarizer.py    # YouTube 专用版
+├── bilibili_summarizer.py   # B站 专用版
+├── config.example           # 配置示例
+├── README.md               # 说明文档
+└── requirements.txt        # 依赖
+```
+
+## 🏗️ 架构
+
+```
+视频 URL
     │
-    ▼
-┌─────────────────────┐
-│  Extract Video ID    │
-│  (正则表达式)       │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Get Transcript      │
-│  youtube-transcript │
-│  -api              │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Split Text         │
-│  (避免超上下文)      │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  LLM Summarize      │
-│  DeepSeek / OpenAI  │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Format Output      │
-│  Markdown 保存      │
-└─────────────────────┘
+    ├─→ YouTube ─→ 字幕提取 ─→ LLM 分析 ─→ Markdown
+    │
+    └─→ Bilibili ─→ 弹幕提取 ─→ LLM 分析 ─→ Markdown
 ```
-
-## ⚠️ 注意事项
-
-1. **字幕可用性**: 部分视频没有字幕
-2. **语言**: 默认优先英文，然后中文
-3. **长度**: 长视频处理时间较长
-4. **API 成本**: 考虑使用 DeepSeek（性价比高）
 
 ## 📦 依赖
 
 - `youtube-transcript-api`
-- `openai`
 - `requests`
-- `python-dotenv`
 
-## 🔗 参考项目
+## 🔗 参考
 
 - [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)
-- [summarize_anything](https://github.com/rodion-m/summarize_anything)
-- [yt-transcript-summarizer](https://github.com/fschuhi/yt-transcript-summarizer)
+- B站 API 文档
 
 ---
 
-*Built with ❤️ by OpenClaw Agent System*
+*Built with ❤️ by OpenClaw*

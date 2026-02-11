@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 YouTube Transcript Summarizer
-基于字幕的 YouTube 视频总结工具
+支持自定义 API 配置的 YouTube 视频字幕总结工具
 """
 
 import os
 import sys
 import argparse
+import json
+import requests
 from datetime import datetime
 from typing import Optional, List, Dict
 from pathlib import Path
@@ -16,272 +18,185 @@ try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:
     print("❌ 缺少依赖: youtube-transcript-api")
-    print("   安装: pip install youtube-transcript-api openai")
+    print("   安装: pip install youtube-transcript-api requests")
     sys.exit(1)
 
-try:
-    import openai
-except ImportError:
-    print("❌ 缺少依赖: openai")
-    print("   安装: pip install openai")
-    sys.exit(1)
+
+class Config:
+    """配置管理"""
+    
+    @staticmethod
+    def load(config_path: str = None) -> Dict:
+        """加载配置"""
+        # 默认路径
+        if not config_path:
+            config_path = os.getenv("YOUTUBE_SUMMARIZER_CONFIG") or ".youtube-summarizer.json"
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        return {}
+    
+    @staticmethod
+    def get_api_key(config: Dict) -> str:
+        """获取 API Key（优先级：配置 > 环境变量 > 默认）"""
+        return (config.get("api_key") or 
+                os.getenv("MINIMAX_API_KEY") or 
+                os.getenv("OPENAI_API_KEY") or 
+                "")
+    
+    @staticmethod
+    def get_api_url(config: Dict) -> str:
+        """获取 API URL（优先级：配置 > 默认）"""
+        return (config.get("api_url") or 
+                os.getenv("YOUTUBE_SUMMARIZER_API_URL") or 
+                "https://api.minimaxi.com/v1/chat/completions")
+    
+    @staticmethod
+    def get_model(config: Dict) -> str:
+        """获取模型"""
+        return config.get("model") or os.getenv("YOUTUBE_SUMMARIZER_MODEL") or "MiniMax-M2.1"
 
 
 class YouTubeSummarizer:
     """YouTube 字幕总结器"""
     
-    def __init__(self, api_key: Optional[str] = None, provider: str = "deepseek"):
+    def __init__(self, config: Dict = None):
         """
         初始化
         
         Args:
-            api_key: API Key（优先使用环境变量）
-            provider: LLM 提供商 (deepseek / openai)
+            config: 可选的配置字典，若为 None 则从配置文件加载
         """
-        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
-        self.provider = provider
+        if config is None:
+            config = Config.load()
         
-        if not self.api_key:
-            raise ValueError("需要设置 API Key")
-        
-        # 配置客户端
-        if provider == "deepseek":
-            self.client = openai.OpenAI(
-                api_key=self.api_key,
-                base_url="https://api.deepseek.com"
-            )
-            self.model = "deepseek-chat"
-        else:
-            self.client = openai.OpenAI(api_key=self.api_key)
-            self.model = "gpt-3.5-turbo"
+        self.config = config
+        self.api_key = Config.get_api_key(config)
+        self.api_url = Config.get_api_url(config)
+        self.model = Config.get_model(config)
     
     def extract_video_id(self, url: str) -> str:
         """从 URL 提取视频 ID"""
         import re
-        
         patterns = [
-            r'(?:v=|\/)([0-9A-Za-z_-]{11})',  # 标准 URL
-            r'(?:youtu\.be\/)([0-9A-Za-z_-]{11})',  # 短链接
+            r'(?:v=|\/)([0-9A-Za-z_-]{11})',
+            r'(?:youtu\.be\/)([0-9A-Za-z_-]{11})',
         ]
-        
         for pattern in patterns:
             match = re.search(pattern, url)
             if match:
                 return match.group(1)
-        
         raise ValueError(f"无法解析视频 ID: {url}")
     
     def get_transcript(self, video_id: str, languages: List[str] = None) -> Dict:
-        """
-        获取字幕
-        
-        Args:
-            video_id: YouTube 视频 ID
-            languages: 首选语言列表
-            
-        Returns:
-            字幕信息字典
-        """
+        """获取字幕"""
         transcript_api = YouTubeTranscriptApi()
-        
-        # 获取可用字幕
-        available = transcript_api.list_transcripts(video_id)
-        
-        # 尝试获取首选语言
+        transcript_list = transcript_api.list(video_id)
         target_langs = languages or ['en', 'zh-Hans', 'zh-CN', 'zh']
         
         for lang in target_langs:
             try:
-                transcript = available.find_transcript(lang)
-                return {
-                    'text': ' '.join([t['text'] for t in transcript.fetch_transcript()]),
-                    'language': lang,
-                    'is_generated': transcript.is_generated,
-                }
+                transcript = transcript_list.find_transcript([lang])
+                data = transcript.fetch()
+                text = ' '.join(data.text_entries) if hasattr(data, 'text_entries') else str(data)
+                return {'text': text, 'language': lang, 'is_generated': transcript.is_generated}
             except:
                 continue
-        
-        # 尝试自动检测
-        try:
-            transcript = available.find_manually_created_transcript()
-            return {
-                'text': ' '.join([t['text'] for t in transcript.fetch_transcript()]),
-                'language': 'auto',
-                'is_generated': False,
-            }
-        except:
-            raise ValueError("无法获取视频字幕")
+        raise ValueError("无法获取视频字幕")
     
-    def summarize(self, text: str, format: str = "brief", max_length: int = 500) -> Dict:
-        """
-        生成总结
+    def summarize(self, text: str, format: str = "brief", max_length: int = 500) -> str:
+        """使用 LLM 分析字幕"""
         
-        Args:
-            text: 字幕文本
-            format: 输出格式 (brief/detailed/timestamp)
-            max_length: 最大长度
-            
-        Returns:
-            总结结果
-        """
-        # 分段处理（避免超出上下文限制）
-        chunks = self._split_text(text, max_tokens=4000)
+        if not self.api_key:
+            raise ValueError("需要设置 API Key，可通过配置文件、环境变量或直接传入")
         
-        if len(chunks) == 1:
-            prompt = self._build_prompt(chunks[0], format, max_length)
-            result = self._call_llm(prompt)
-        else:
-            # 多段总结
-            summaries = []
-            for i, chunk in enumerate(chunks):
-                prompt = self._build_prompt(chunk, "brief", 300)
-                summary = self._call_llm(prompt)
-                summaries.append(summary)
-            
-            # 汇总总结
-            combined = "\n\n".join(summaries)
-            prompt = self._build_prompt(combined, format, max_length)
-            result = self._call_llm(prompt)
-        
-        return result
-    
-    def _split_text(self, text: str, max_tokens: int = 4000) -> List[str]:
-        """分段文本"""
-        # 简单按段落分段
-        words = text.split()
-        chunk = []
-        chunks = []
-        current_size = 0
-        
-        for word in words:
-            if current_size + len(word) > max_tokens * 4:  # 粗略估计
-                chunks.append(' '.join(chunk))
-                chunk = [word]
-                current_size = 0
-            else:
-                chunk.append(word)
-                current_size += len(word) + 1
-        
-        if chunk:
-            chunks.append(' '.join(chunk))
-        
-        return chunks
-    
-    def _build_prompt(self, text: str, format: str, max_length: int) -> str:
-        """构建 Prompt"""
-        
-        base_prompt = f"""请总结以下 YouTube 视频字幕内容：
-
-{text[:3000]}...  # 限制输入长度
-
-请按照以下格式输出："""
-        
+        # 构建 prompt
         if format == "brief":
-            return f"""{base_prompt}
+            prompt = f"""请总结以下 YouTube 字幕（{max_length}字内）：
 
-## 摘要 (不超过 {max_length} 字)
-[简洁的摘要]
+{text[:5000]}
 
-## 关键要点
-- [要点 1]
-- [要点 2]
-- [要点 3]
-"""
-        
-        elif format == "detailed":
-            return f"""{base_prompt}
-
-## 完整摘要
-[详细的摘要，{max_length} 字左右]
-
-## 关键要点
-1. [要点 1]
-2. [要点 2]
-3. [要点 3]
-4. [要点 4]
-5. [要点 5]
-
-## 结论
-[视频的结论或建议]
-"""
-        
-        elif format == "timestamp":
-            return f"""{base_prompt}
-
-请从字幕中提取关键信息和对应时间戳：
-
+回复格式：
 ## 摘要
-[一句话总结]
+[简短总结]
+## 关键要点
+- [要点1]
+- [要点2]
+- [要点3]"""
+        elif format == "detailed":
+            prompt = f"""请详细总结以下 YouTube 字幕：
 
-## 时间戳要点
-- [03:12] [相关话题或观点]
-- [08:45] [重要信息]
-- [12:30] [关键结论]
+{text[:5000]}
 
+回复格式：
+## 完整摘要
+[详细总结]
 ## 核心要点
-- [要点 1]
-- [要点 2]
-- [要点 3]
-"""
+1. [要点1]
+2. [要点2]
+3. [要点3]
+4. [要点4]
+5. [要点5]
+## 结论
+[结论或建议]"""
+        else:  # timestamp
+            prompt = f"""从以下字幕提取时间戳要点：
+
+{text[:5000]}
+
+回复格式：
+## 一句话总结
+[总结]
+## 时间戳要点
+- [03:12] [话题]
+- [08:45] [观点]
+## 核心要点
+- [要点1]
+- [要点2]
+- [要点3]"""
         
-        return base_prompt
-    
-    def _call_llm(self, prompt: str) -> Dict:
-        """调用 LLM"""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000,
-            temperature=0.5,
-        )
-        
-        return {
-            "summary": response.choices[0].message.content,
-            "model": self.model,
-            "tokens": response.usage.total_tokens if hasattr(response, 'usage') else None,
+        # 调用 API
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
         }
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 2000,
+            "temperature": 0.5
+        }
+        
+        try:
+            resp = requests.post(self.api_url, headers=headers, json=payload, timeout=60)
+            resp.raise_for_status()
+            result_data = resp.json()
+            return result_data['choices'][0]['message']['content']
+        except Exception as e:
+            raise ValueError(f"API 调用失败: {e}")
     
     def process_video(self, url: str, format: str = "brief", 
                       max_length: int = 500, save: bool = True) -> Dict:
-        """
-        完整处理流程
-        
-        Args:
-            url: YouTube 视频 URL
-            format: 输出格式
-            max_length: 最大长度
-            save: 是否保存到文件
-            
-        Returns:
-            处理结果
-        """
-        import re
-        
-        # 提取信息
+        """完整流程"""
         video_id = self.extract_video_id(url)
-        
         print(f"📹 获取字幕中...")
         transcript_info = self.get_transcript(video_id)
+        print(f"✍️ 分析中...")
         
-        print(f"✍️  生成总结中...")
-        result = self.summarize(transcript_info['text'], format, max_length)
-        
-        # 获取视频信息（简化）
-        video_info = {
-            "id": video_id,
-            "url": url,
-            "language": transcript_info['language'],
-            "is_generated": transcript_info['is_generated'],
-        }
+        summary = self.summarize(transcript_info['text'], format, max_length)
         
         output = {
-            "video_info": video_info,
-            "summary": result["summary"],
+            "video_info": {
+                "id": video_id,
+                "url": url,
+                "language": transcript_info['language']
+            },
+            "summary": summary,
             "format": format,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat()
         }
         
-        # 保存文件
         if save:
             filename = f"youtube-summary-{video_id}.md"
             self._save_to_file(output, filename)
@@ -303,43 +218,39 @@ class YouTubeSummarizer:
 
 {output['summary']}
 """
-        
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(content)
-        
         print(f"💾 已保存: {filename}")
 
 
 def main():
-    """CLI 入口"""
-    parser = argparse.ArgumentParser(
-        description="YouTube 视频字幕总结工具"
-    )
-    parser.add_argument("url", help="YouTube 视频 URL")
-    parser.add_argument("--format", "-f", choices=["brief", "detailed", "timestamp"],
-                        default="brief", help="总结格式")
-    parser.add_argument("--max-length", "-m", type=int, default=500,
-                        help="最大长度")
-    parser.add_argument("--save/--no-save", default=True, help="是否保存文件")
-    parser.add_argument("--provider", "-p", choices=["deepseek", "openai"],
-                        default="deepseek", help="LLM 提供商")
-    parser.add_argument("--api-key", "-k", help="API Key")
-    
+    """CLI"""
+    parser = argparse.ArgumentParser(description="YouTube 字幕总结工具")
+    parser.add_argument("url", help="YouTube 链接")
+    parser.add_argument("-f", "--format", choices=["brief", "detailed", "timestamp"], default="brief")
+    parser.add_argument("-m", "--max-length", type=int, default=500)
+    parser.add_argument("-c", "--config", help="配置文件路径")
+    parser.add_argument("--api-key", help="API Key（覆盖配置）")
+    parser.add_argument("--api-url", help="API URL（覆盖配置）")
+    parser.add_argument("--model", help="模型名称（覆盖配置）")
+    parser.add_argument("--no-save", action="store_true", help="不保存到文件")
     args = parser.parse_args()
     
+    # 构建配置
+    config = {}
+    if args.config:
+        config = Config.load(args.config)
+    if args.api_key:
+        config["api_key"] = args.api_key
+    if args.api_url:
+        config["api_url"] = args.api_url
+    if args.model:
+        config["model"] = args.model
+    
     try:
-        summarizer = YouTubeSummarizer(api_key=args.api_key, provider=args.provider)
-        
-        result = summarizer.process_video(
-            url=args.url,
-            format=args.format,
-            max_length=args.max_length,
-            save=args.save,
-        )
-        
-        print(f"\n✅ 完成!")
-        print(f"📝 总结预览:\n{result['summary'][:200]}...")
-        
+        s = YouTubeSummarizer(config)
+        result = s.process_video(args.url, args.format, args.max_length, save=not args.no_save)
+        print(f"\n✅ 完成!\n\n{result['summary'][:500]}")
     except Exception as e:
         print(f"❌ 错误: {e}")
         sys.exit(1)
