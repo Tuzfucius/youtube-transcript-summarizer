@@ -274,6 +274,24 @@ def detect_platform(url: str) -> str:
     elif 'leetcode.com' in url_lower:
         return 'leetcode'
     
+    # ACG 社区
+    elif 'douban.com' in url_lower:
+        return 'douban'
+    elif 'tieba.baidu.com' in url_lower:
+        return 'tieba'
+    elif 'lofter.com' in url_lower:
+        return 'lofter'
+    elif 'cyzone.cn' in url_lower:
+        return 'cyzone'
+    
+    # 直播平台
+    elif 'douyu.com' in url_lower:
+        return 'douyu'
+    elif 'huya.com' in url_lower:
+        return 'huya'
+    elif 'yy.com' in url_lower:
+        return 'yy'
+    
     # 其他
     elif 'snapchat.com' in url_lower:
         return 'snapchat'
@@ -1049,6 +1067,174 @@ class AmazonExtractor:
         }
 
 
+# ============== 豆瓣 平台 ==============
+class DoubanExtractor:
+    """豆瓣内容提取器"""
+    
+    @staticmethod
+    def extract_subject_id(url: str) -> Optional[str]:
+        """提取主题 ID"""
+        match = re.search(r'/subject/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取主题信息"""
+        subject_id = DoubanExtractor.extract_subject_id(url)
+        return {
+            'id': subject_id,
+            'url': url,
+            'title': f'豆瓣 {subject_id}',
+            'desc': '',
+            'author': '未知',
+            'platform': 'douban'
+        }
+
+
+# ============== 百度贴吧 平台 ==============
+class TiebaExtractor:
+    """百度贴吧帖子提取器"""
+    
+    @staticmethod
+    def extract_thread_id(url: str) -> Optional[str]:
+        """提取帖子 ID"""
+        match = re.search(r'/p/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取帖子信息"""
+        thread_id = TiebaExtractor.extract_thread_id(url)
+        return {
+            'id': thread_id,
+            'url': url,
+            'title': f'贴吧帖子 {thread_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'tieba'
+        }
+
+
+# ============== Lofter 平台 ==============
+class LofterExtractor:
+    """Lofter 文章提取器"""
+    
+    @staticmethod
+    def extract_note_id(url: str) -> Optional[str]:
+        """提取文章 ID"""
+        match = re.search(r'/post/(\w+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取文章信息"""
+        note_id = LofterExtractor.extract_note_id(url)
+        return {
+            'id': note_id,
+            'url': url,
+            'title': f'Lofter 文章 {note_id}',
+            'desc': '',
+            'author': '未知用户',
+            'platform': 'lofter'
+        }
+
+
+# ============== 半次元 平台 ==============
+class CyzoneExtractor:
+    """半次元作品提取器"""
+    
+    @staticmethod
+    def extract_work_id(url: str) -> Optional[str]:
+        """提取作品 ID"""
+        match = re.search(r'/work/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取作品信息"""
+        work_id = CyzoneExtractor.extract_work_id(url)
+        return {
+            'id': work_id,
+            'url': url,
+            'title': f'半次元作品 {work_id}',
+            'desc': '',
+            'author': '未知创作者',
+            'platform': 'cyzone'
+        }
+
+
+# ============== 斗鱼 平台 ==============
+class DouyuExtractor:
+    """斗鱼直播间提取器"""
+    
+    @staticmethod
+    def extract_room_id(url: str) -> Optional[str]:
+        """提取直播间 ID"""
+        match = re.search(r'/(\w+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取直播间信息"""
+        room_id = DouyuExtractor.extract_room_id(url)
+        return {
+            'id': room_id,
+            'url': url,
+            'title': f'斗鱼直播间 {room_id}',
+            'desc': '',
+            'author': '未知主播',
+            'platform': 'douyu'
+        }
+
+
+# ============== 虎牙 平台 ==============
+class HuyaExtractor:
+    """虎牙直播间提取器"""
+    
+    @staticmethod
+    def extract_room_id(url: str) -> Optional[str]:
+        """提取直播间 ID"""
+        match = re.search(r'/(\w+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取直播间信息"""
+        room_id = HuyaExtractor.extract_room_id(url)
+        return {
+            'id': room_id,
+            'url': url,
+            'title': f'虎牙直播间 {room_id}',
+            'desc': '',
+            'author': '未知主播',
+            'platform': 'huya'
+        }
+
+
+# ============== YY 平台 ==============
+class YYExtractor:
+    """YY直播间提取器"""
+    
+    @staticmethod
+    def extract_room_id(url: str) -> Optional[str]:
+        """提取直播间 ID"""
+        match = re.search(r'/(\d+)', url)
+        return match.group(1) if match else None
+    
+    @staticmethod
+    def get_video_info(url: str) -> Dict:
+        """获取直播间信息"""
+        room_id = YYExtractor.extract_room_id(url)
+        return {
+            'id': room_id,
+            'url': url,
+            'title': f'YY直播间 {room_id}',
+            'desc': '',
+            'author': '未知主播',
+            'platform': 'yy'
+        }
+
+
 # ============== 美团/大众点评 平台 ==============
 class MeituanExtractor:
     """美团/大众点评商品提取器"""
@@ -1673,6 +1859,58 @@ class VideoSummarizer:
             'name': 'LeetCode',
             'extractor': LeetCodeExtractor,
             'content_type': '题目',
+            'api_required': False
+        },
+        
+        # ACG 社区
+        'bilibili-column': {
+            'name': 'B站专栏',
+            'extractor': BilibiliExtractor,
+            'content_type': '文章',
+            'api_required': False
+        },
+        'douban': {
+            'name': '豆瓣',
+            'extractor': DoubanExtractor,
+            'content_type': '内容',
+            'api_required': False
+        },
+        'tieba': {
+            'name': '百度贴吧',
+            'extractor': TiebaExtractor,
+            'content_type': '帖子',
+            'api_required': False
+        },
+        'lofter': {
+            'name': 'Lofter',
+            'extractor': LofterExtractor,
+            'content_type': '文章',
+            'api_required': False
+        },
+        'cyzone': {
+            'name': '半次元',
+            'extractor': CyzoneExtractor,
+            'content_type': '作品',
+            'api_required': False
+        },
+        
+        # 直播平台
+        'douyu': {
+            'name': '斗鱼',
+            'extractor': DouyuExtractor,
+            'content_type': '直播间',
+            'api_required': False
+        },
+        'huya': {
+            'name': '虎牙',
+            'extractor': HuyaExtractor,
+            'content_type': '直播间',
+            'api_required': False
+        },
+        'yy': {
+            'name': 'YY',
+            'extractor': YYExtractor,
+            'content_type': '直播间',
             'api_required': False
         }
     }
