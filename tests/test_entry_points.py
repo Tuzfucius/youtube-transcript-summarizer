@@ -8,9 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cli
 import export_subtitle
+import src.core as core
 import web_ui
 from src import summarize
-import src.core as core
 
 
 def test_cli_config_roundtrip_and_mask(tmp_path):
@@ -78,7 +78,19 @@ def test_real_youtube_summary_chain_without_network(monkeypatch):
     monkeypatch.setattr(
         core.YouTubeExtractor,
         "get_transcript",
-        lambda video_id, langs=None: {"text": "第一句 第二句", "language": "zh-Hans"},
+        lambda video_id, langs=None: {
+            "text": "第一句。第二句。",
+            "language": "zh-Hans",
+            "title": "测试标题",
+            "owner": "测试作者",
+            "desc": "测试描述",
+            "content_type": "字幕",
+            "source_type": "subtitle",
+            "segments": [
+                {"start": 0.0, "end": 1.0, "text": "第一句。"},
+                {"start": 1.0, "end": 2.0, "text": "第二句。"},
+            ],
+        },
     )
     monkeypatch.setattr(
         core.VideoSummarizer,
@@ -90,7 +102,29 @@ def test_real_youtube_summary_chain_without_network(monkeypatch):
 
     assert result["summary"] == "总结结果"
     assert result["video_info"]["content_type"] == "字幕"
+    assert result["video_info"]["title"] == "测试标题"
+    assert result["video_info"]["owner"] == "测试作者"
+    assert result["video_info"]["source_type"] == "subtitle"
     assert result["platform"] == "youtube"
+
+
+def test_parse_llm_response_strips_think_block():
+    class FakeResponse:
+        def json(self):
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "<think>内部推理</think>\n最终答案",
+                        }
+                    }
+                ]
+            }
+
+        text = "<think>内部推理</think>\n最终答案"
+
+    summarizer = core.VideoSummarizer({"api_key": "dummy"})
+    assert summarizer._parse_llm_response(FakeResponse()) == "最终答案"
 
 
 def test_bilibili_extract_and_export_without_network(monkeypatch, tmp_path):
@@ -112,7 +146,11 @@ def test_bilibili_extract_and_export_without_network(monkeypatch, tmp_path):
         lambda cid: [{"text": "弹幕一"}, {"text": "弹幕二"}],
     )
 
-    extracted = export_subtitle.extract_content("https://www.bilibili.com/video/BVDEMO12345", use_subtitle=True, clean=False)
+    extracted = export_subtitle.extract_content(
+        "https://www.bilibili.com/video/BVDEMO12345",
+        use_subtitle=True,
+        clean=False,
+    )
     assert extracted["content"] == "弹幕一 弹幕二"
     assert extracted["content_type"] == "弹幕"
 
