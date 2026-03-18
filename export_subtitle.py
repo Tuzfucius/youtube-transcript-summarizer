@@ -1,132 +1,172 @@
 #!/usr/bin/env python3
 """
-Video Summarizer - 仅导出字幕工具
-提取并保存视频字幕/弹幕内容
+仅导出字幕/弹幕工具
+提取并保存视频字幕或弹幕内容（不调用 LLM）
 """
 
-import os
-import sys
 import json
 import re
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from __init__ import extract_video, clean_danmaku
+from src.extractors import (
+    YouTubeExtractor,
+    BilibiliExtractor,
+    DanmakuCleaner,
+    detect_platform,
+)
+from src.utils import logger
 
 
-def export_subtitle(url: str, output: str = None, format: str = 'txt', 
-                   clean: bool = True, use_subtitle: bool = True) -> dict:
+def extract_content(url: str, use_subtitle: bool = True, clean: bool = True) -> dict:
+    """提取视频内容，返回统一格式的 dict"""
+    platform = detect_platform(url)
+
+    if platform == "youtube":
+        vid = YouTubeExtractor.extract_video_id(url)
+        if not vid:
+            return {"error": "无法解析视频 ID"}
+        tr = YouTubeExtractor.get_transcript(vid)
+        return {
+            "platform": platform,
+            "title": "",
+            "content": tr["text"] if tr else "",
+            "content_type": "字幕",
+        }
+
+    elif platform == "bilibili":
+        bvid = BilibiliExtractor.extract_bvid(url)
+        if not bvid:
+            return {"error": "无法解析 BV 号"}
+        info = BilibiliExtractor.get_video_info(bvid) or {}
+        content = ""
+
+        if use_subtitle:
+            sub = BilibiliExtractor.get_subtitles(info.get("bvid", bvid), info.get("cid", 0))
+            if sub.get("has_subtitle"):
+                content = sub.get("text", "")
+
+        if not content:
+            danmaku = BilibiliExtractor.get_danmaku(info.get("cid", 0))
+            if clean:
+                danmaku, _ = DanmakuCleaner.clean(danmaku)
+            content = " ".join(d["text"] for d in danmaku[:500])
+
+        return {
+            "platform":     platform,
+            "title":        info.get("title", ""),
+            "content":      content,
+            "content_type": "字幕" if use_subtitle and content else "弹幕",
+        }
+
+    return {"platform": platform, "title": f"{platform} 内容", "content": "", "content_type": "描述"}
+
+
+def export_subtitle(
+    url: str,
+    output: str = None,
+    format: str = "txt",
+    clean: bool = True,
+    use_subtitle: bool = True,
+) -> dict:
     """
-    仅导出字幕/弹幕内容
-    
+    仅导出字幕/弹幕内容，不调用 LLM。
+
     Args:
-        url: 视频 URL
-        output: 输出文件路径
-        format: 输出格式 (txt/json)
-        clean: 是否清洗弹幕
+        url:          视频 URL
+        output:       输出文件路径（自动推断扩展名）
+        format:       输出格式（txt / json）
+        clean:        是否清洗弹幕
         use_subtitle: 是否优先使用字幕
-    
+
     Returns:
-        dict: 包含 content 和 file_path
+        包含 success/error 信息的 dict
     """
-    # 提取内容
-    data = extract_video(url, use_subtitle=use_subtitle, clean_danmaku_flag=clean)
-    
-    content = data.get('content', '')
+    data = extract_content(url, use_subtitle=use_subtitle, clean=clean)
+    if "error" in data:
+        return {"error": data["error"], "url": url}
+
+    content = data.get("content", "")
     if not content:
-        return {'error': '无法提取内容', 'url': url}
-    
-    # 确定输出文件
+        return {"error": "无法提取内容", "url": url}
+
     if not output:
-        title = data.get('title', 'video')
-        safe_title = re.sub(r'[\\/:*?"<>|]', '_', title)[:50]
+        title = data.get("title", "video")
+        safe_title = re.sub(r'[\/:*?"<>|\\]', "_", title)[:50]
         output = f"{safe_title}.{format}"
-    
+
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # 写入文件
-    if format == 'json':
-        output_data = {
-            'url': url,
-            'title': data.get('title'),
-            'platform': data.get('platform'),
-            'content_type': data.get('content_type'),
-            'content': content
-        }
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=2)
+
+    if format == "json":
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump({**data, "url": url}, f, ensure_ascii=False, indent=2)
     else:
-        # TXT 格式：简单按句号和换行符分割
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(f"# {data.get('title', 'Video')}\n")
             f.write(f"# URL: {url}\n")
             f.write(f"# 平台: {data.get('platform')}\n")
             f.write(f"# 类型: {data.get('content_type')}\n")
             f.write("#" * 40 + "\n\n")
-            # 清理并写入内容
-            lines = re.split(r'[。！？\n]', content)
-            for line in lines:
+            for line in re.split(r"[。！？\n]", content):
                 line = line.strip()
                 if line:
                     f.write(f"{line}\n")
-    
+
     return {
-        'success': True,
-        'title': data.get('title'),
-        'platform': data.get('platform'),
-        'content_type': data.get('content_type'),
-        'content_length': len(content),
-        'file_path': str(output_path),
-        'format': format
+        "success":        True,
+        "title":          data.get("title"),
+        "platform":       data.get("platform"),
+        "content_type":   data.get("content_type"),
+        "content_length": len(content),
+        "file_path":      str(output_path),
+        "format":         format,
     }
 
 
-def export_batch(url_file: str, output_dir: str = '.', format: str = 'txt', **kwargs) -> list:
-    """批量导出"""
+def export_batch(url_file: str, output_dir: str = ".", format: str = "txt", **kwargs) -> list:
+    """批量导出字幕"""
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True)
-    
+
+    with open(url_file, "r", encoding="utf-8") as f:
+        urls = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+
     results = []
-    with open(url_file, 'r') as f:
-        urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    
     for i, url in enumerate(urls, 1):
-        output = str(output_dir / f"video_{i}.{format}")
-        result = export_subtitle(url, output=output, format=format, **kwargs)
+        result = export_subtitle(url, output=str(output_dir / f"video_{i}.{format}"), format=format, **kwargs)
         results.append(result)
-        status = "✅" if result.get('success') else "❌"
-        print(f"{status} [{i}/{len(urls)}] {url[:50]}...")
-    
+        status = "✅" if result.get("success") else "❌"
+        print(f"{status} [{i}/{len(urls)}] {url[:60]}...")
+
     return results
 
 
-# ============== CLI ==============
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
-    
-    parser = argparse.ArgumentParser(description='🎬 导出视频字幕/弹幕')
-    parser.add_argument('url', nargs='?', help='视频 URL')
-    parser.add_argument('-o', '--output', help='输出文件')
-    parser.add_argument('-f', '--format', choices=['txt', 'json'], default='txt')
-    parser.add_argument('--no-clean', action='store_true')
-    parser.add_argument('--no-subtitle', action='store_true')
-    parser.add_argument('--batch', help='批量文件')
-    parser.add_argument('-d', '--dir', default='.', help='输出目录')
-    
+
+    parser = argparse.ArgumentParser(description="🎬 导出视频字幕/弹幕（不调用 LLM）")
+    parser.add_argument("url", nargs="?", help="视频 URL")
+    parser.add_argument("-o", "--output", help="输出文件")
+    parser.add_argument("-f", "--format", choices=["txt", "json"], default="txt")
+    parser.add_argument("--no-clean",    action="store_true")
+    parser.add_argument("--no-subtitle", action="store_true")
+    parser.add_argument("--batch", help="批量文件")
+    parser.add_argument("-d", "--dir", default=".", help="批量输出目录")
+
     args = parser.parse_args()
-    
+
     if args.url:
         result = export_subtitle(
             args.url,
             output=args.output,
             format=args.format,
             clean=not args.no_clean,
-            use_subtitle=not args.no_subtitle
+            use_subtitle=not args.no_subtitle,
         )
-        
-        if result.get('success'):
+        if result.get("success"):
             print(f"\n✅ 导出成功!")
             print(f"   文件: {result['file_path']}")
             print(f"   平台: {result['platform']}")
@@ -134,10 +174,8 @@ if __name__ == '__main__':
             print(f"   长度: {result['content_length']} 字符")
         else:
             print(f"❌ 错误: {result.get('error')}")
-    
     elif args.batch:
         results = export_batch(args.batch, output_dir=args.dir, format=args.format)
-        print(f"\n📦 批量完成: {len(results)} 个")
+        print(f"\n📦 完成: {len(results)} 个")
 
-
-__all__ = ['export_subtitle', 'export_batch']
+__all__ = ["export_subtitle", "export_batch"]

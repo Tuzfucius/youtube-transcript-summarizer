@@ -317,8 +317,7 @@ def create_default_config(filepath: str = "config.json"):
 # ============== 便捷函数 ==============
 def quick_summarize(url: str, **kwargs) -> dict:
     """快速总结（自然语言友好）"""
-    from video_summarizer import summarize
-    
+    from src.core import summarize
     return summarize(url, **kwargs)
 
 
