@@ -1,5 +1,0 @@
-{
-    "api_key": "your-api-key-here",
-    "api_url": "https://api.minimaxi.com/v1/chat/completions",
-    "model": "MiniMax-M2.1"
-}

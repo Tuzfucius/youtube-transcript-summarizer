@@ -162,14 +162,6 @@ def _extract_error_message(error: Any) -> str:
     return _normalize_text(error)
 
 
-def _redact_api_key(api_key: Optional[str]) -> str:
-    if not api_key:
-        return ""
-    if len(api_key) <= 8:
-        return "*" * len(api_key)
-    return f"{api_key[:4]}...{api_key[-4:]}"
-
-
 class VideoSummarizer:
     """多平台视频内容总结器。"""
 
