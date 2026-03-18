@@ -1,8 +1,9 @@
 # Video Summarizer Requirements
 # Mode: full
 
-youtube-transcript-api
-requests
+requests>=2.31.0
+yt-dlp>=2024.0.0
+youtube-transcript-api>=0.6.0
 
 # Optional Dependencies (install manually)
 # These require more resources but enable advanced features:
@@ -10,10 +11,6 @@ requests
 # Whisper Transcription (for videos without subtitles)
 # pip install faster-whisper
 # Note: Requires 4GB+ RAM, CPU supported but GPU recommended
-
-# Video Download (for downloading videos)
-# pip install yt-dlp
-# Note: Also requires ffmpeg installed on system
 
 # Gradio Web UI (for browser interface)
 # pip install gradio
