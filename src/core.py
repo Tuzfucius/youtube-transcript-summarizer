@@ -29,6 +29,17 @@ class VideoSummarizer:
 
     def __init__(self, config: Dict = None):
         cfg = config or {}
+        
+        # 尝试自动加载 config.json
+        if not cfg and not os.getenv("MINIMAX_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                except Exception as e:
+                    logger.warning(f"读取 config.json 失败: {e}")
+
         self.api_key = (
             cfg.get("api_key")
             or os.getenv("MINIMAX_API_KEY")
