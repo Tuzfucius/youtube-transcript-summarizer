@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 """
-src 包公共 API 导出
-所有外部代码应通过此文件 import，而非直接引用子模块
+src 包统一导出。
+外部入口尽量只从这里导入，避免直接依赖内部实现细节。
 """
 
+from .config import (
+    AppConfig,
+    DEFAULT_CONFIG,
+    DEFAULT_CONFIG_PATH,
+    load_config,
+    load_env_config,
+    mask_secret,
+    redact_config,
+    resolve_runtime_config,
+)
 from .core import (
+    DEFAULT_PROMPTS,
     VideoSummarizer,
     clean_danmaku_text,
     detect,
@@ -20,24 +31,39 @@ from .extractors import (
     GenericExtractor,
     YouTubeExtractor,
 )
-from .prompts import DEFAULT_PROMPTS
+from .prompts import list_prompt_formats, render_prompt
 from .utils import Timer, handle_errors, logger, retry, setup_logger
 
-__version__ = "3.9.0"
+__version__ = "3.10.0"
 
 __all__ = [
-    # 核心函数
-    "summarize", "detect", "detect_platform", "list_platforms",
+    "summarize",
+    "detect",
+    "detect_platform",
+    "list_platforms",
     "clean_danmaku_text",
-    # 类
     "VideoSummarizer",
-    "YouTubeExtractor", "BilibiliExtractor",
-    "DanmakuCleaner", "GenericExtractor",
-    # 工具定义
-    "get_tool_definition", "get_all_tools",
-    # 工具函数
-    "logger", "setup_logger", "Timer", "retry", "handle_errors",
-    # 常量
+    "YouTubeExtractor",
+    "BilibiliExtractor",
+    "DanmakuCleaner",
+    "GenericExtractor",
+    "get_tool_definition",
+    "get_all_tools",
+    "logger",
+    "setup_logger",
+    "Timer",
+    "retry",
+    "handle_errors",
     "DEFAULT_PROMPTS",
+    "list_prompt_formats",
+    "render_prompt",
+    "AppConfig",
+    "DEFAULT_CONFIG",
+    "DEFAULT_CONFIG_PATH",
+    "load_config",
+    "load_env_config",
+    "resolve_runtime_config",
+    "mask_secret",
+    "redact_config",
     "__version__",
 ]

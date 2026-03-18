@@ -1,419 +1,260 @@
-# 🎬 Video Summarizer
+# Video Summarizer
 
-**支持 45+ 平台的多平台视频内容总结工具**
+这是一个围绕“视频文本提取 + LLM 总结”构建的 Python 项目。当前版本以 YouTube 和 Bilibili 为主要可用平台，重点保证真实提取链路、配置安全和入口层可维护性。
 
-> Python API | CLI | MCP Server | Claude Code | Web UI
+## 项目定位
 
----
+项目当前的稳定能力是：
 
-## ✨ 特性
+- 从 YouTube 提取官方字幕、自动字幕，必要时回退到 `youtube-transcript-api`
+- 从 Bilibili 提取字幕，失败时回退到弹幕
+- 对提取后的文本调用 LLM 做结构化总结
+- 提供 CLI、Python API、Web UI、MCP Server、字幕导出等入口
 
-- 🎯 **45+ 平台支持** - YouTube、Bilibili、抖音、Twitter 等
-- 📝 **5 种分析模式** - 简要、详细、时间戳、情感、趋势
-- 🔧 **多种接入方式** - Python API、CLI、MCP Server、Claude Code
-- 💾 **弹幕清洗** - 自动过滤无意义弹幕
-- 🚀 **异步并发** - 多视频同时处理
-- 📊 **历史记录** - SQLite 存储与统计
-- 🔍 **视频对比** - 多视频对比分析
-- 🌐 **多 API 支持** - MiniMax、OpenAI、DeepSeek、Anthropic
-- 💰 **成本追踪** - Token 统计、成本计算
-- 🎤 **Whisper 支持** - 语音转文字（可选）
-- 🎨 **Web UI** - Gradio 浏览器界面（可选）
+项目不再沿用早期“支持 45+ 平台”的描述。是否可用，以仓库中真实实现和实际联调结果为准。
 
----
+## 架构概览
 
-## 🚀 快速开始
+核心链路如下：
 
-### 1. 安装依赖
+```text
+入口层
+CLI / Web UI / MCP / 导出脚本 / Python API
+    ->
+核心编排层
+src/core.py
+    ->
+提取兼容层
+src/extractors.py
+    ->
+服务层
+src/services/youtube.py / bilibili.py / captions.py
+    ->
+LLM API 或导出文件
+```
+
+更详细的设计说明见 [docs/README.md](/E:/Project/youtube-transcript-summarizer/docs/README.md)。
+
+## 环境准备
+
+推荐在 Windows 11 上用 conda 管理环境：
 
 ```bash
+conda create -n youtube-summarizer python=3.11
+conda activate youtube-summarizer
 pip install -r requirements.txt
 ```
 
-### 2. 配置 API Key
-
-复制配置示例并填写你的 API Key：
+按需安装可选依赖：
 
 ```bash
-cp config.example.json config.json
-# 然后编辑 config.json，填写 api_key
+pip install gradio
+pip install faster-whisper
 ```
 
-或使用 CLI 命令设置：
+说明：
+
+- `requirements.txt` 已包含基础运行所需的 `requests`、`yt-dlp`、`youtube-transcript-api`
+- `gradio` 用于 Web UI
+- `faster-whisper` 用于后续无字幕视频的语音转写能力
+
+## 配置说明
+
+### 配置文件原则
+
+用户的 API Key 应保存在本机 `config.json` 中，不能上传到仓库。
+
+仓库中只保留：
+
+- [`config.example.json`](/E:/Project/youtube-transcript-summarizer/config.example.json)：可提交的模板
+
+本机私有文件：
+
+- `config.json`：真实密钥和本地参数
+
+`config.json` 已被 `.gitignore` 忽略。
+
+### 创建配置文件
+
+Windows 下可以执行：
 
 ```bash
-python cli.py config --set api_key=your-api-key-here
+copy config.example.json config.json
 ```
 
-### 3. 开始使用
+然后编辑本地 `config.json`。
 
-```python
-from src import summarize
+### 字段说明
 
-result = summarize("https://www.youtube.com/watch?v=xxx", format="brief")
-print(result["summary"])
-```
-
----
-
-## 📁 目录结构
-
-```
-youtube-transcript-summarizer/
-├── src/                      # 核心源码
-│   ├── __init__.py          # 统一公共 API 导出
-│   ├── utils.py             # 日志、重试、计时器等工具
-│   ├── prompts.py           # LLM Prompt 模板管理
-│   ├── extractors.py        # YouTube/Bilibili 内容提取器
-│   ├── core.py              # VideoSummarizer 类及便捷函数
-│   ├── advanced.py          # 异步并发、历史记录、多 LLM 工厂
-│   └── README.md
-│
-├── tests/                   # 测试用例
-│   ├── test_stability.py    # 基础稳定性测试（无需 API Key）
-│   └── README.md
-│
-├── cli.py                   # 命令行工具（入口）
-├── mcp_server.py            # MCP Server（入口）
-├── web_ui.py                # Gradio Web UI（入口，可选）
-├── export_subtitle.py       # 字幕/弹幕导出工具（入口）
-├── claude_code.py           # Claude Code 集成
-│
-├── video_summarizer.py      # 兼容层（向后兼容旧 import）
-├── __init__.py              # 兼容层（向后兼容旧 import）
-│
-├── config.json              # 用户配置（需自行创建）
-├── config.example.json      # 配置示例
-├── requirements.txt         # 基础依赖
-├── requirements-light.txt   # 轻量化依赖
-├── requirements-full.txt    # 完整依赖
-└── README.md
-```
-
----
-
-## ⚙️ 配置说明
-
-### config.json 字段详解
+推荐配置示例：
 
 ```json
 {
-  "api_key":       "your-api-key-here",
-  "api_url":       "https://api.minimaxi.com/v1/chat/completions",
-  "model":         "MiniMax-M2.1",
-  "format":        "brief",
-  "use_subtitle":  true,
+  "api_key": "your-api-key-here",
+  "api_url": "https://api.minimaxi.com/v1/chat/completions",
+  "model": "MiniMax-M2.1",
+  "format": "brief",
+  "use_subtitle": true,
   "clean_danmaku": true,
   "cache_enabled": true,
-  "log_level":     "INFO"
+  "log_level": "INFO"
 }
 ```
 
-| 字段 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `api_key` | string | — | **必填**，LLM API Key |
-| `api_url` | string | MiniMax 地址 | LLM 接口地址，切换提供商时修改 |
-| `model` | string | `MiniMax-M2.1` | 使用的模型名称 |
-| `format` | string | `brief` | 默认输出格式 |
-| `use_subtitle` | boolean | `true` | Bilibili 是否优先使用 CC 字幕（否则用弹幕）|
-| `clean_danmaku` | boolean | `true` | 是否清洗弹幕（过滤无意义内容）|
-| `cache_enabled` | boolean | `true` | 是否启用缓存 |
-| `log_level` | string | `INFO` | 日志级别（DEBUG/INFO/WARNING/ERROR）|
+字段含义：
 
-### 各 LLM 提供商配置
+- `api_key`：LLM API Key，必填，建议只保存在本机 `config.json`
+- `api_url`：LLM 接口地址。默认是 OpenAI 兼容的 `/v1/chat/completions`
+- `model`：模型名称
+- `format`：默认总结格式，可选 `brief`、`detailed`、`timestamp`、`sentiment`、`trend`
+- `use_subtitle`：对支持的平台优先尝试字幕轨
+- `clean_danmaku`：是否对 Bilibili 弹幕做清洗
+- `cache_enabled`：当前作为保留字段，后续可用于缓存扩展
+- `log_level`：日志级别，例如 `INFO`、`DEBUG`、`WARNING`
 
-#### MiniMax（默认）
-```json
-{
-  "api_key": "your-minimax-key",
-  "api_url": "https://api.minimaxi.com/v1/chat/completions",
-  "model":   "MiniMax-M2.1"
-}
-```
+### 配置来源优先级
 
-#### OpenAI / OpenAI 兼容接口
-```json
-{
-  "api_key": "sk-xxx",
-  "api_url": "https://api.openai.com/v1/chat/completions",
-  "model":   "gpt-4o"
-}
-```
+运行时配置按以下顺序覆盖：
 
-#### DeepSeek
-```json
-{
-  "api_key": "your-deepseek-key",
-  "api_url": "https://api.deepseek.com/v1/chat/completions",
-  "model":   "deepseek-chat"
-}
-```
+1. 显式函数参数或命令行参数
+2. 环境变量
+3. `config.json`
+4. 内置默认值
 
-#### Anthropic（Claude）
-```json
-{
-  "api_key": "sk-ant-xxx",
-  "api_url": "https://api.anthropic.com/v1/messages",
-  "model":   "claude-3-5-sonnet-20241022"
-}
-```
+### 支持的环境变量
 
-### 环境变量（替代 config.json）
+可替代 `config.json` 的环境变量包括：
+
+- `VIDEO_SUMMARIZER_API_KEY`
+- `MINIMAX_API_KEY`
+- `OPENAI_API_KEY`
+- `VIDEO_SUMMARIZER_API_URL`
+- `VIDEO_SUMMARIZER_MODEL`
+- `VIDEO_SUMMARIZER_FORMAT`
+- `VIDEO_SUMMARIZER_USE_SUBTITLE`
+- `VIDEO_SUMMARIZER_CLEAN_DANMAKU`
+- `VIDEO_SUMMARIZER_CACHE_ENABLED`
+- `VIDEO_SUMMARIZER_LOG_LEVEL`
+
+### 常见配置场景
+
+#### 场景 1：默认使用本地配置
 
 ```bash
-export MINIMAX_API_KEY="your-api-key"
-# 或
-export OPENAI_API_KEY="your-api-key"
-
-export VIDEO_SUMMARIZER_API_URL="https://api.minimaxi.com/v1/chat/completions"
-export VIDEO_SUMMARIZER_MODEL="MiniMax-M2.1"
+python cli.py url "https://www.youtube.com/watch?v=xxx"
 ```
 
----
+#### 场景 2：命令行临时覆盖模型
 
-## 📖 使用方式
+```bash
+python cli.py url "https://www.youtube.com/watch?v=xxx" --model gpt-4o-mini
+```
+
+#### 场景 3：命令行临时覆盖 API 地址
+
+```bash
+python cli.py url "https://www.youtube.com/watch?v=xxx" --api-url https://api.openai.com/v1/chat/completions
+```
+
+#### 场景 4：只导出字幕，不调用 LLM
+
+```bash
+python export_subtitle.py "https://www.youtube.com/watch?v=xxx" -f txt
+```
+
+## 使用方式
 
 ### Python API
 
 ```python
-from src import summarize, detect
+from src import summarize
 
-# 总结视频
 result = summarize(
     "https://www.youtube.com/watch?v=xxx",
-    format="brief",         # 输出格式
-    api_key="your-key",     # 可选，优先于 config.json
+    format="brief"
 )
 print(result["summary"])
-
-# 自定义 Prompt
-result = summarize(
-    url="https://bilibili.com/video/BVxxx",
-    prompt="请从以下角度分析：1. 核心观点 2. 目标受众 3. 制作水平"
-)
-
-# 检测平台
-print(detect("https://twitter.com/xxx"))  # → twitter
 ```
 
 ### CLI
 
 ```bash
-# 总结单个视频
-python cli.py url "https://youtube.com/watch?v=xxx" -f brief
-
-# 指定 LLM 提供商
-python cli.py url "URL" --provider openai --api-key sk-xxx
-
-# 保存到文件
-python cli.py url "URL" -f detailed -o result.md
-
-# 批量处理
-python cli.py batch urls.txt -f brief -o results.json
-
-# 异步并发批量
-python cli.py batch urls.txt --async -c 5
-
-# 对比多个视频
-python cli.py compare "URL1" "URL2" "URL3"
-
-# 历史记录
-python cli.py history
-python cli.py history --search AI
-
-# 统计
-python cli.py stats
-
-# 查看 LLM 提供商
+python cli.py url "https://www.youtube.com/watch?v=xxx" -f brief
+python cli.py batch urls.txt -f detailed
+python cli.py compare "URL1" "URL2"
+python cli.py config --set model=gpt-4o-mini
 python cli.py providers
+```
 
-# 管理配置
-python cli.py config
-python cli.py config --set api_key=xxx
-python cli.py config --get api_key
+### 导出字幕或弹幕
+
+```bash
+python export_subtitle.py "https://www.youtube.com/watch?v=xxx" -f txt
+python export_subtitle.py "https://www.bilibili.com/video/BVxxx" -f json
+```
+
+### Web UI
+
+```bash
+python web_ui.py --port 7860
 ```
 
 ### MCP Server
 
 ```bash
-# Stdio 模式（Claude Code 推荐）
 python mcp_server.py --mcp-stdio
-
-# HTTP 模式
 python mcp_server.py --mcp-http --port 8080
-
-# 直接 CLI 调用
-python mcp_server.py --url "URL" --format brief
 ```
 
-### 仅导出字幕
+如果未安装 `mcp` 相关依赖，脚本会给出明确提示，而不是在导入阶段直接崩溃。
 
-```bash
-# 导出为 TXT
-python export_subtitle.py "URL" -f txt
+## 返回结构
 
-# 导出为 JSON
-python export_subtitle.py "URL" -f json -o output.json
-
-# 批量导出
-python export_subtitle.py --batch urls.txt -d ./subtitles
-```
-
----
-
-## 📋 输出格式
-
-| 格式 | 说明 |
-|------|------|
-| `brief` | 简要总结（默认），含摘要和关键要点 |
-| `detailed` | 详细分析，含内容、风格、受众、热门原因 |
-| `timestamp` | 带时间戳的要点提取 |
-| `sentiment` | 情感分析（适合弹幕） |
-| `trend` | 趋势分析 |
-
----
-
-## 📊 返回结构
+`summarize()` 返回结构化字典，常见字段如下：
 
 ```python
 {
     "platform": "youtube",
     "video_info": {
-        "id":           "视频ID",
-        "url":          "https://...",
-        "title":        "视频标题",
-        "owner":        "作者",
-        "content_type": "字幕"  # 或 "弹幕"
+        "id": "...",
+        "url": "https://...",
+        "title": "...",
+        "owner": "...",
+        "content_type": "字幕",
+        "source_type": "subtitle",
+        "language": "en",
+        "content_length": 2094
     },
-    "summary":   "总结内容...",
-    "format":    "brief",
-    "timestamp": "2026-03-18T08:00:00"
+    "summary": "...",
+    "format": "brief",
+    "timestamp": "2026-03-18T09:23:53",
+    "error": None
 }
 ```
 
----
+当内容为空、平台解析失败或 LLM 调用失败时，`error` 会包含结构化错误信息。
 
-## 🌐 支持平台
+## 测试
 
-| 分类 | 平台 |
-|------|------|
-| 视频 | YouTube · Bilibili · 抖音 · 快手 · 西瓜视频 · Twitch · Vimeo |
-| 社交 | Twitter/X · Weibo · Instagram · 小红书 · 知乎 · Reddit · Medium |
-| 音乐 | 网易云音乐 · QQ音乐 · SoundCloud |
-| 电商 | 淘宝 · 天猫 · 京东 · 亚马逊 · eBay · Etsy |
-| 直播 | 斗鱼 · 虎牙 · YY |
-| 其他 | Codeforces · LeetCode · 豆瓣 · 贴吧 |
-
-完整列表：`python cli.py providers` 或 `from src import list_platforms; print(list_platforms())`
-
----
-
-## 🚀 高级功能
-
-### 异步并发
-
-```python
-from src.advanced import AsyncSummarizer
-import asyncio
-
-async def main():
-    s = AsyncSummarizer(max_concurrent=5, api_key="xxx")
-    results = await s.summarize_batch(
-        urls=["URL1", "URL2", "URL3"],
-        format="brief"
-    )
-
-asyncio.run(main())
-```
-
-### 历史记录
-
-```python
-from src.advanced import HistoryStore
-
-store = HistoryStore()
-store.add(url, title, platform, summary, format, tags=["AI"])
-results = store.search("AI")
-stats = store.get_stats()
-```
-
-### 多 LLM 工厂
-
-```python
-from src.advanced import LLMFactories, quick_summarize
-
-# 查看支持的提供商
-print(LLMFactories.list_providers())  # ['minimax', 'openai', 'deepseek', 'anthropic']
-
-# 指定提供商总结
-result = quick_summarize("URL", provider="openai", api_key="sk-xxx")
-```
-
----
-
-## 🎤 Whisper 转录（可选）
+运行：
 
 ```bash
-pip install faster-whisper yt-dlp
-
-python whisper_transcribe.py "audio.wav" --model small
+pytest
 ```
 
-| 模型 | 大小 | 推荐场景 |
-|------|------|----------|
-| tiny | 39M | 快速测试 |
-| small | 244M | **日常推荐** |
-| medium | 769M | 高精度 |
-| large-v3 | 1.5G | 最高精度 |
+当前测试重点覆盖：
 
----
+- 入口层调用
+- 配置读写与敏感信息遮蔽
+- 无网络模拟链路
+- 导出逻辑
 
-## 🎨 Web UI（可选）
+真实线上视频验证不放入默认测试，而是作为手动联调流程执行。
 
-```bash
-pip install gradio
-python web_ui.py --port 7860
-# 访问 http://localhost:7860
-```
+## 目录说明
 
----
-
-## 📦 安装方式
-
-```bash
-# 基础安装（推荐）
-pip install -r requirements.txt
-
-# 完整安装（包括可选功能说明）
-pip install -r requirements-full.txt
-
-# 可选：Whisper 转录
-pip install faster-whisper yt-dlp
-```
-
----
-
-## 🔗 相关链接
-
-- GitHub: <https://github.com/Tuzfucius/youtube-transcript-summarizer>
-
----
-
-## 更新日志
-
-### v3.9.0 (2026-03-18)
-
-- 🏗️ **目录重构** - 核心代码迁移至 `src/`，职责分明
-- 🐛 **修复** `mcp_server.py` 参数名错误（`prompt_type` → `format`）
-- 🐛 **修复** `mcp_server.py` 引用不存在的 `PLATFORMS` 属性
-- 🐛 **修复** `BilibiliExtractor` 字幕内容提取逻辑（补全字幕下载和文本解析）
-- 🐛 **修复** `YouTubeExtractor` 兼容新版 `youtube_transcript_api`（>= 0.6）
-- 🐛 **修复** `cli.py` 参数名错误（`clean_danmaku_flag` → `clean_danmaku`）
-- 🐛 **修复** `export_subtitle.py` 错误的 `from __init__ import`
-- ✨ **新增** `tests/` 测试目录，稳定性测试更完善
-
-### v3.8.5 (2026-02-11)
-
-- ✨ Claude Code Skill 集成
-- ✨ 自然语言触发
-- ✨ 成本追踪、Whisper 支持
+- [`docs/README.md`](/E:/Project/youtube-transcript-summarizer/docs/README.md)：项目架构说明
+- [`src/README.md`](/E:/Project/youtube-transcript-summarizer/src/README.md)：核心模块说明
+- [`src/services/README.md`](/E:/Project/youtube-transcript-summarizer/src/services/README.md)：提取服务层说明
+- [`tests/README.md`](/E:/Project/youtube-transcript-summarizer/tests/README.md)：测试说明
+- [`logs/README.md`](/E:/Project/youtube-transcript-summarizer/logs/README.md)：日志目录说明

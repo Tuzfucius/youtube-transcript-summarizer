@@ -12,16 +12,13 @@ ENV/
 .env
 .env.local
 config.json
+history.db
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# 输出文件
-*.md
-!README.md
 
 # 系统
 .DS_Store
@@ -31,7 +28,7 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
-test.py
 
 # Logs
 *.log
+logs/*.log
