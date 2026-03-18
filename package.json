@@ -1,30 +1,30 @@
 {
   "name": "video-summarizer",
-  "version": "3.8.0",
-  "description": "Multi-platform video content summarizer - YouTube, Bilibili, Douyin, Twitter, etc.",
+  "version": "3.10.0",
+  "description": "Video text extractor and summarizer focused on YouTube and Bilibili.",
   "entry_point": "video_summarizer.py",
   "cli_command": "python -m video_summarizer",
   "api_style": "openai-compatible",
   "capabilities": [
     "summarize_video",
     "extract_content",
-    "clean_danmaku"
+    "clean_danmaku",
+    "export_subtitle"
   ],
   "platforms": [
-    "youtube", "bilibili", "douyin", "kuaishou", "xigua", "twitch", "vimeo",
-    "weibo", "twitter", "instagram", "xiaohongshu", "zhihu", "telegram",
-    "reddit", "medium", "quora", "pinterest", "snapchat",
-    "netease", "qqmusic", "soundcloud", "podcast",
-    "taobao", "tmall", "jd", "dewu", "zhuanzhuan", "xianyu", "amazon", "ebay", "etsy", "shopify",
-    "meituan", "eleme", "ctrip", "mafengwo", "airbnb",
-    "codeforces", "leetcode",
-    "douban", "tieba", "lofter", "cyzone", "douyu", "huya", "yy"
+    "youtube",
+    "bilibili"
   ],
   "output_formats": [
-    "brief", "detailed", "timestamp", "sentiment", "trend"
+    "brief",
+    "detailed",
+    "timestamp",
+    "sentiment",
+    "trend"
   ],
   "requirements": [
-    "youtube-transcript-api>=0.6.0",
-    "requests>=2.31.0"
+    "requests>=2.31.0",
+    "yt-dlp>=2024.0.0",
+    "youtube-transcript-api>=0.6.0"
   ]
 }
