@@ -20,8 +20,12 @@ DEPLOY_MODES = {
             'clean_danmaku() - 弹幕清洗',
         ],
         'files': [
-            'video_summarizer.py',
-            '__init__.py',
+            'src/__init__.py',
+            'src/core.py',
+            'src/extractors.py',
+            'src/utils.py',
+            'src/prompts.py',
+            'video_summarizer.py',  # 兼容层
         ],
         'dependencies': [
             'youtube-transcript-api',
@@ -46,16 +50,20 @@ DEPLOY_MODES = {
             'Gradio Web UI (whisper_transcribe.py)',
         ],
         'files': [
-            'video_summarizer.py',
-            '__init__.py',
+            'src/__init__.py',
+            'src/core.py',
+            'src/extractors.py',
+            'src/utils.py',
+            'src/prompts.py',
+            'src/advanced.py',
+            'video_summarizer.py',  # 兼容层
             'cli.py',
-            'advanced.py',
             'mcp_server.py',
             'claude_code.py',
             'deploy.py',
             'export_subtitle.py',
-            'whisper_transcribe.py',  # 新增
-            'web_ui.py',               # 新增
+            'whisper_transcribe.py',
+            'web_ui.py',
         ],
         'dependencies': [
             'youtube-transcript-api',
