@@ -13,21 +13,49 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
-
 from src.core import VideoSummarizer, detect_platform, list_platforms, DEFAULT_PROMPTS
+
+MCP_IMPORT_ERROR: Optional[Exception] = None
+
+try:
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    from mcp.types import TextContent, Tool
+except ImportError as exc:  # pragma: no cover - depends on optional package
+    Server = None  # type: ignore[assignment]
+    stdio_server = None  # type: ignore[assignment]
+    TextContent = None  # type: ignore[assignment]
+    Tool = None  # type: ignore[assignment]
+    MCP_IMPORT_ERROR = exc
+
+
+def ensure_mcp_available() -> None:
+    """在真正启动 MCP 服务前检查可选依赖。"""
+    if MCP_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "未安装 MCP 依赖，无法启动 MCP Server。"
+            " 请先安装对应包后再执行 --mcp-stdio 或 --mcp-http。"
+        ) from MCP_IMPORT_ERROR
+
+
+def configure_stdio() -> None:
+    """尽量将标准输出切换到 UTF-8，避免 Windows 控制台编码错误。"""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 class VideoSummarizerMCPServer:
     """Video Summarizer MCP Server"""
 
     def __init__(self):
+        ensure_mcp_available()
         self.server = Server("video-summarizer")
         self.setup_handlers()
 
@@ -133,6 +161,8 @@ class VideoSummarizerMCPServer:
 async def main():
     import argparse
 
+    configure_stdio()
+
     parser = argparse.ArgumentParser(
         description="🎬 Video Summarizer - MCP Server & CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -189,10 +219,19 @@ async def main():
         print("=" * 50)
         return
 
-    server = VideoSummarizerMCPServer()
     if args.mcp_stdio:
+        try:
+            server = VideoSummarizerMCPServer()
+        except RuntimeError as exc:
+            print(exc)
+            return
         await server.run()
     elif args.mcp_http:
+        try:
+            server = VideoSummarizerMCPServer()
+        except RuntimeError as exc:
+            print(exc)
+            return
         await server.run(port=args.port)
     else:
         parser.print_help()
