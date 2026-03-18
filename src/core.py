@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any, Dict, List, Mapping, Optional
 
 import requests
@@ -99,6 +100,9 @@ def _normalize_source_payload(raw: Any, default_source_type: str) -> Dict[str, A
         return payload
 
     if isinstance(raw, dict):
+        payload["title"] = _normalize_text(raw.get("title"))
+        payload["owner"] = _normalize_text(raw.get("owner") or raw.get("author"))
+        payload["desc"] = _normalize_text(raw.get("desc") or raw.get("description"))
         payload["language"] = _normalize_text(raw.get("language"))
         payload["source_type"] = _normalize_text(
             raw.get("source_type") or raw.get("type") or default_source_type
@@ -134,6 +138,15 @@ def _trim_content(content: str, limit: int = DEFAULT_CONTENT_LIMIT) -> str:
     if len(text) <= limit:
         return text
     return text[:limit].rstrip()
+
+
+def _strip_reasoning_content(text: str) -> str:
+    """移除部分推理模型返回的 think 标签内容。"""
+    value = _normalize_text(text)
+    if not value:
+        return ""
+    value = re.sub(r"<think>.*?</think>", "", value, flags=re.IGNORECASE | re.DOTALL)
+    return value.strip()
 
 
 def _structure_error(code: str, message: str, **details: Any) -> Dict[str, Any]:
@@ -203,9 +216,9 @@ class VideoSummarizer:
                 "platform": platform,
                 "id": video_id,
                 "url": url,
-                "title": "",
-                "owner": "",
-                "desc": "",
+                "title": transcript_payload.get("title", ""),
+                "owner": transcript_payload.get("owner", ""),
+                "desc": transcript_payload.get("desc", ""),
                 "views": 0,
                 "likes": 0,
                 "content": content,
@@ -367,17 +380,17 @@ class VideoSummarizer:
                         ]
                         text = "\n".join(t for t in texts if t).strip()
                         if text:
-                            return text
+                            return _strip_reasoning_content(text)
                     text = _normalize_text(content)
                     if text:
-                        return text
+                        return _strip_reasoning_content(text)
                 text = _normalize_text(first_choice.get("text"))
                 if text:
-                    return text
+                    return _strip_reasoning_content(text)
 
             output_text = _normalize_text(data.get("output_text"))
             if output_text:
-                return output_text
+                return _strip_reasoning_content(output_text)
 
             content = data.get("content")
             if isinstance(content, list):
@@ -388,13 +401,13 @@ class VideoSummarizer:
                 ]
                 text = "\n".join(t for t in texts if t).strip()
                 if text:
-                    return text
+                    return _strip_reasoning_content(text)
 
             text = _normalize_text(data.get("message"))
             if text:
-                return text
+                return _strip_reasoning_content(text)
 
-        return response.text.strip()
+        return _strip_reasoning_content(response.text)
 
     def _call_llm(self, prompt_text: str) -> Dict[str, Any]:
         """调用 LLM API，并返回结构化结果。"""

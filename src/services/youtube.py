@@ -72,6 +72,7 @@ def _extract_video_info(yt_dlp_module, url: str) -> Dict:
     options = {
         "quiet": True,
         "no_warnings": True,
+        "noprogress": True,
         "skip_download": True,
         "writesubtitles": False,
         "writeautomaticsub": False,
@@ -84,6 +85,7 @@ def _download_subtitles(yt_dlp_module, url: str, output_dir: Path, language: str
     options = {
         "quiet": True,
         "no_warnings": True,
+        "noprogress": True,
         "skip_download": True,
         "writesubtitles": not auto,
         "writeautomaticsub": auto,

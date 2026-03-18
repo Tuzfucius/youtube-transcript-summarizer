@@ -49,10 +49,10 @@ def extract_content(url: str, use_subtitle: bool = True, clean: bool = True) -> 
         return {
             "platform": platform,
             "url": url,
-            "title": "",
+            "title": transcript.get("title", "") if transcript else "",
             "content": text,
             "content_type": "字幕",
-            "source_type": "subtitle",
+            "source_type": transcript.get("source_type", "subtitle") if transcript else "subtitle",
             "language": transcript.get("language") if transcript else "",
         }
 
